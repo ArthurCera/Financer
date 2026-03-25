@@ -15,14 +15,37 @@ export class OCRService {
     if (result.structuredData) {
       const data = result.structuredData;
       expense = {
-        amount: typeof data['amount'] === 'number' ? data['amount'] : undefined,
-        date: typeof data['date'] === 'string' ? data['date'] : undefined,
-        description: typeof data['description'] === 'string' ? data['description'] : undefined,
-        merchant: typeof data['merchant'] === 'string' ? data['merchant'] : undefined,
-        category: typeof data['category'] === 'string' ? data['category'] : undefined,
+        amount: this.parseAmount(data['amount']),
+        date: this.parseDate(data['date']),
+        description: data['description'] != null ? String(data['description']) : undefined,
+        merchant: data['merchant'] != null ? String(data['merchant']) : undefined,
+        category: data['category'] != null ? String(data['category']) : undefined,
       };
     }
 
     return { text: result.text, expense };
+  }
+
+  /** Coerce amount from string or number */
+  private parseAmount(raw: unknown): number | undefined {
+    if (raw == null) return undefined;
+    const num = typeof raw === 'number' ? raw : parseFloat(String(raw).replace(/[^0-9.-]/g, ''));
+    return isNaN(num) || num <= 0 ? undefined : num;
+  }
+
+  /** Normalize date to YYYY-MM-DD from various formats */
+  private parseDate(raw: unknown): string | undefined {
+    if (raw == null) return undefined;
+    const str = String(raw).trim();
+
+    // Already ISO format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    // Try parsing as a Date
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+    return undefined;
   }
 }

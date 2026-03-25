@@ -12,17 +12,11 @@ export const CategorizeSchema = z.object({
 export const CategorizeBatchSchema = z.object({
   month: z.number().int().min(1).max(12),
   year: z.number().int().min(2000),
+  recategorizeAll: z.boolean().optional().default(false),
 });
 
 export const ChatSchema = z.object({
   message: z.string().min(1, 'Message is required').max(2000, 'Message must be 2000 characters or fewer'),
-});
-
-/** Validates structured JSON output from the LLM for categorization */
-export const CategorizeResponseSchema = z.object({
-  categoryId: z.string().uuid(),
-  categoryName: z.string(),
-  confidence: z.number().min(0).max(1),
 });
 
 /** Validates structured JSON output from the LLM for OCR */

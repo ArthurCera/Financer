@@ -16,7 +16,6 @@ provider:
     POSTGRES_PASSWORD: ${env:POSTGRES_PASSWORD, 'financer_local'}
     REDIS_HOST: ${env:REDIS_HOST, 'localhost'}
     REDIS_PORT: ${env:REDIS_PORT, '6379'}
-    RABBITMQ_URL: ${env:RABBITMQ_URL, 'amqp://guest:guest@localhost:5672'}
     JWT_SECRET: ${env:JWT_SECRET, 'dev_secret'}
     OLLAMA_BASE_URL: ${env:OLLAMA_BASE_URL, 'http://localhost:11434'}
     OLLAMA_CHAT_MODEL: ${env:OLLAMA_CHAT_MODEL, 'qwen3.5:9b'}
@@ -31,7 +30,7 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3006
-    lambdaPort: 4006
+    lambdaPort: 0
     noPrependStageInUrl: true
 
 functions:
@@ -73,14 +72,6 @@ functions:
       - http:
           method: POST
           path: /llm/chat
-          cors: true
-
-  chatJob:
-    handler: src/handlers/handler.chatJob
-    events:
-      - http:
-          method: GET
-          path: /llm/chat/job/{id}
           cors: true
 
   chatHistory:

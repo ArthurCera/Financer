@@ -40,6 +40,10 @@
           v-if="ocrSuccess"
           class="text-xs text-green-600"
         >Fields pre-filled from receipt</span>
+        <span
+          v-if="ocrError"
+          class="text-xs text-red-600"
+        >{{ ocrError }}</span>
       </div>
     </div>
 
@@ -118,6 +122,7 @@ import type { CreateExpenseRequest, ExpenseResponse } from '@financer/shared'
 const llmStore = useLLMStore()
 const ocrLoading = ref(false)
 const ocrSuccess = ref(false)
+const ocrError = ref<string | null>(null)
 
 interface CategoryOption {
   id: string
@@ -168,7 +173,8 @@ watch(
       form.description = data.description ?? ''
       form.categoryId = data.categoryId ?? ''
     }
-  }
+  },
+  { immediate: true },
 )
 
 async function handleImageUpload(event: Event): Promise<void> {
@@ -178,6 +184,7 @@ async function handleImageUpload(event: Event): Promise<void> {
 
   ocrLoading.value = true
   ocrSuccess.value = false
+  ocrError.value = null
 
   try {
     const base64 = await fileToBase64(file)
@@ -187,8 +194,13 @@ async function handleImageUpload(event: Event): Promise<void> {
       if (result.expense.date) form.date = result.expense.date
       if (result.expense.description) form.description = result.expense.description
       if (result.expense.merchant && !form.description) form.description = result.expense.merchant
+      if (result.expense.categoryId) form.categoryId = result.expense.categoryId
       ocrSuccess.value = true
+    } else if (llmStore.error) {
+      ocrError.value = llmStore.error
     }
+  } catch {
+    ocrError.value = 'Failed to scan receipt. Please enter details manually.'
   } finally {
     ocrLoading.value = false
     // Reset file input

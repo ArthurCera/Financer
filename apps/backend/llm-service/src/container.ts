@@ -7,13 +7,10 @@ import { PgVectorRepository } from './repositories/PgVectorRepository';
 import { LLMChatRepository } from './repositories/LLMChatRepository';
 import { BudgetReadRepository } from './repositories/BudgetReadRepository';
 import { IncomeReadRepository } from './repositories/IncomeReadRepository';
-import { RabbitMQService } from './queue/RabbitMQService';
 import { CategorizationService } from './services/CategorizationService';
 import { ChatService } from './services/ChatService';
 import { LLMService } from './services/LLMService';
 import { OCRService } from './services/OCRService';
-import { QueueWorker } from './services/QueueWorker';
-import { ChatStreamServer } from './streaming/ChatStreamServer';
 import { FinancialToolService } from './tools/FinancialToolService';
 
 container.register('db', { useValue: db });
@@ -21,7 +18,6 @@ container.register('ICacheService', { useClass: RedisService });
 container.register('ILLMProvider', { useClass: OllamaProvider });
 container.register('IOCRProvider', { useClass: OllamaOCRProvider });
 container.register('IVectorRepository', { useClass: PgVectorRepository });
-container.register('IQueueService', { useClass: RabbitMQService });
 container.register('ILLMChatRepository', { useClass: LLMChatRepository });
 container.register('ICategoryRepository', { useClass: CategoryRepository });
 container.register('IExpenseRepository', { useClass: SharedExpenseRepository });
@@ -32,5 +28,3 @@ container.register('ICategorizationService', { useClass: CategorizationService }
 container.register('IChatService', { useClass: ChatService });
 container.register('ILLMService', { useClass: LLMService });
 container.register('IOCRService', { useClass: OCRService });
-container.register('IQueueWorker', { useClass: QueueWorker });
-container.register(ChatStreamServer, { useClass: ChatStreamServer });

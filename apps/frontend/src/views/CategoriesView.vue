@@ -138,12 +138,29 @@
           </div>
         </div>
 
-        <AppInput
-          v-model="form.icon"
-          label="Icon"
-          placeholder="e.g. tag, shopping-cart, home"
-          :error="formErrors.icon"
-        />
+        <div class="w-full">
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            Icon
+          </label>
+          <div class="grid grid-cols-5 gap-2">
+            <button
+              v-for="ic in availableIcons"
+              :key="ic.key"
+              type="button"
+              class="flex flex-col items-center gap-1 p-2 rounded-lg border transition-colors"
+              :class="form.icon === ic.key
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                : 'border-slate-200 hover:border-slate-300 text-slate-600 hover:bg-slate-50'"
+              @click="form.icon = ic.key"
+            >
+              <CategoryIcon
+                :icon="ic.key"
+                size="md"
+              />
+              <span class="text-[10px] leading-tight truncate w-full text-center">{{ ic.label }}</span>
+            </button>
+          </div>
+        </div>
 
         <div class="flex gap-3 pt-2">
           <AppButton
@@ -174,6 +191,7 @@ import AppTable, { type TableColumn } from '../components/common/AppTable.vue'
 import AppModal from '../components/common/AppModal.vue'
 import AppInput from '../components/common/AppInput.vue'
 import ErrorBanner from '../components/common/ErrorBanner.vue'
+import CategoryIcon from '../components/common/CategoryIcon.vue'
 import { useCategoryStore } from '../stores/category.store'
 import type { CategoryResponse, CreateCategoryRequest, UpdateCategoryRequest } from '@financer/shared'
 
@@ -190,6 +208,19 @@ const form = reactive({
 })
 
 const formErrors = reactive<Record<string, string>>({})
+
+const availableIcons = [
+  { key: 'utensils', label: 'Food' },
+  { key: 'car', label: 'Transport' },
+  { key: 'home', label: 'Home' },
+  { key: 'heart-pulse', label: 'Health' },
+  { key: 'tv', label: 'TV' },
+  { key: 'shopping-bag', label: 'Shopping' },
+  { key: 'book-open', label: 'Education' },
+  { key: 'zap', label: 'Utilities' },
+  { key: 'plane', label: 'Travel' },
+  { key: 'tag', label: 'Other' },
+]
 
 const columns: TableColumn[] = [
   { key: 'name', label: 'Name' },
@@ -213,7 +244,6 @@ function resetForm(): void {
   form.color = '#6B7280'
   form.icon = 'tag'
   formErrors.name = ''
-  formErrors.icon = ''
 }
 
 function openCreate(): void {
@@ -231,14 +261,12 @@ function openEditById(id: string): void {
     form.icon = found.icon
   }
   formErrors.name = ''
-  formErrors.icon = ''
   showModal.value = true
 }
 
 function validate(): boolean {
   let valid = true
   formErrors.name = ''
-  formErrors.icon = ''
 
   if (!form.name.trim()) {
     formErrors.name = 'Name is required'
@@ -246,10 +274,6 @@ function validate(): boolean {
   }
   if (form.name.trim().length > 100) {
     formErrors.name = 'Name must be 100 characters or fewer'
-    valid = false
-  }
-  if (form.icon && form.icon.trim().length > 50) {
-    formErrors.icon = 'Icon must be 50 characters or fewer'
     valid = false
   }
   return valid

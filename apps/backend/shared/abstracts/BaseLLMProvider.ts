@@ -1,6 +1,6 @@
 import { ILLMProvider, LLMOptions } from '../interfaces/ILLMProvider';
 
-const MAX_RETRIES = 3;
+const DEFAULT_MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
 
 /**
@@ -9,14 +9,10 @@ const BASE_DELAY_MS = 500;
  * Abstract base class for all LLM provider implementations.
  *
  * Concrete providers (e.g. OllamaProvider) extend this class and implement
- * the three abstract methods. All shared cross-cutting concerns live here:
+ * the abstract methods. All shared cross-cutting concerns live here:
  *
  *  - Retry with exponential backoff
  *  - Structured request logging
- *
- * This follows the Template Method pattern:
- *   BaseLLMProvider controls the algorithm structure,
- *   subclasses fill in the provider-specific steps.
  */
 export abstract class BaseLLMProvider implements ILLMProvider {
 
@@ -34,12 +30,12 @@ export abstract class BaseLLMProvider implements ILLMProvider {
 
   async complete(prompt: string, options?: LLMOptions): Promise<string> {
     this.logRequest('complete', { promptLength: prompt.length, options });
-    return this.withRetry(() => this.executeComplete(prompt, options));
+    return this.withRetry(() => this.executeComplete(prompt, options), 1);
   }
 
   async embed(text: string): Promise<number[]> {
     this.logRequest('embed', { textLength: text.length });
-    const result = await this.withRetry(() => this.executeEmbed(text));
+    const result = await this.withRetry(() => this.executeEmbed(text), 2);
     if (result.length === 0) {
       throw new Error('Embedding model returned empty vector');
     }
@@ -51,13 +47,13 @@ export abstract class BaseLLMProvider implements ILLMProvider {
   // ---------------------------------------------------------------------------
 
   /**
-   * Retry a function up to MAX_RETRIES times with exponential backoff.
+   * Retry a function up to maxRetries times with exponential backoff.
    * Only retries on transient errors (network, timeout).
    */
-  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  private async withRetry<T>(fn: () => Promise<T>, maxRetries = DEFAULT_MAX_RETRIES): Promise<T> {
     let lastError: Error | undefined;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         return await fn();
       } catch (error) {
@@ -67,7 +63,7 @@ export abstract class BaseLLMProvider implements ILLMProvider {
           throw lastError;
         }
 
-        if (attempt < MAX_RETRIES) {
+        if (attempt < maxRetries) {
           const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
           this.log('warn', `Attempt ${attempt} failed, retrying in ${delay}ms...`);
           await this.sleep(delay);

@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { dashboardApi, unwrap } from '../services/api.service'
 import type { AdminStatsResponse, AdminUserResponse, AdminLLMUsageResponse, DetailedLLMStatsResponse } from '@financer/shared'
 import { extractErrorMessage } from '../utils/errors'
+import { useAuthStore } from './auth.store'
 
 export const useAdminStore = defineStore('admin', () => {
   const stats = ref<AdminStatsResponse | null>(null)
@@ -95,6 +96,19 @@ export const useAdminStore = defineStore('admin', () => {
       await dashboardApi.put(`/admin/users/${userId}`, { role })
       const user = users.value.find(u => u.id === userId)
       if (user) user.role = role
+
+      // If the admin changed their own role, refresh tokens + profile
+      const auth = useAuthStore()
+      if (userId === auth.user?.id) {
+        await auth.refreshTokens()
+        await auth.fetchProfile()
+
+        // If demoted, redirect away from admin
+        if (role !== 'admin') {
+          const { default: router } = await import('../router')
+          await router.push('/dashboard')
+        }
+      }
     } catch (err: unknown) {
       error.value = extractErrorMessage(err)
       throw err

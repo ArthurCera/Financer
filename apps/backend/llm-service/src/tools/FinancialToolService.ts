@@ -21,63 +21,63 @@ import {
 const TOOL_DEFINITIONS: ToolDefinition[] = [
   {
     name: 'get_expenses',
-    description: 'List the user\'s expenses for a given month and year. Returns individual expense entries with description, amount, category, and date.',
+    description: 'Get individual expense entries for a specific month. Use this when the user asks about specific purchases or wants a list of expenses.',
     parameters: {
       type: 'object',
       properties: {
-        month: { type: 'number', description: 'Month (1-12). Defaults to current month.' },
-        year: { type: 'number', description: 'Year (e.g. 2026). Defaults to current year.' },
-        limit: { type: 'number', description: 'Max number of expenses to return (1-50). Defaults to 20.' },
+        month: { type: 'number', description: 'Month number 1-12 (e.g. 3 for March). Required.' },
+        year: { type: 'number', description: 'Four-digit year (e.g. 2026). Required.' },
+        limit: { type: 'number', description: 'Max results to return, 1-50. Default 20.' },
       },
     },
   },
   {
     name: 'get_expense_summary',
-    description: 'Get a summary of spending by category for a given month. Returns total spending and per-category breakdown.',
+    description: 'Get total spending and per-category breakdown for a month. Use this when the user asks "how much did I spend" or wants a spending overview.',
     parameters: {
       type: 'object',
       properties: {
-        month: { type: 'number', description: 'Month (1-12). Defaults to current month.' },
-        year: { type: 'number', description: 'Year (e.g. 2026). Defaults to current year.' },
+        month: { type: 'number', description: 'Month number 1-12. Required.' },
+        year: { type: 'number', description: 'Four-digit year. Required.' },
       },
     },
   },
   {
     name: 'get_budgets',
-    description: 'List the user\'s budgets for a given month and year. Returns budget entries with category name and amount.',
+    description: 'Get budget allocations per category for a month. Use this when the user asks about their budget or spending limits.',
     parameters: {
       type: 'object',
       properties: {
-        month: { type: 'number', description: 'Month (1-12). Defaults to current month.' },
-        year: { type: 'number', description: 'Year (e.g. 2026). Defaults to current year.' },
+        month: { type: 'number', description: 'Month number 1-12. Required.' },
+        year: { type: 'number', description: 'Four-digit year. Required.' },
       },
     },
   },
   {
     name: 'get_income',
-    description: 'List the user\'s income entries for a given month. Returns individual entries with amount, source, and date.',
+    description: 'Get individual income entries for a month. Use this when the user asks about their income or earnings.',
     parameters: {
       type: 'object',
       properties: {
-        month: { type: 'number', description: 'Month (1-12). Defaults to current month.' },
-        year: { type: 'number', description: 'Year (e.g. 2026). Defaults to current year.' },
+        month: { type: 'number', description: 'Month number 1-12. Required.' },
+        year: { type: 'number', description: 'Four-digit year. Required.' },
       },
     },
   },
   {
     name: 'get_income_summary',
-    description: 'Get total income for a given month and year.',
+    description: 'Get total income for a month.',
     parameters: {
       type: 'object',
       properties: {
-        month: { type: 'number', description: 'Month (1-12). Defaults to current month.' },
-        year: { type: 'number', description: 'Year (e.g. 2026). Defaults to current year.' },
+        month: { type: 'number', description: 'Month number 1-12. Required.' },
+        year: { type: 'number', description: 'Four-digit year. Required.' },
       },
     },
   },
   {
     name: 'get_categories',
-    description: 'List all available expense/income categories for the user, including system defaults and user-created custom categories.',
+    description: 'List all expense/income categories (system defaults + custom). No parameters needed.',
     parameters: {
       type: 'object',
       properties: {},
@@ -130,21 +130,35 @@ export class FinancialToolService implements IToolService {
   private async getExpenses(userId: string, args: Record<string, unknown>): Promise<unknown> {
     const { month, year, limit } = GetExpensesArgsSchema.parse(args);
     const expenses = await this.expenseRepo.findByUserAndPeriod(userId, month, year);
+
+    if (expenses.length === 0) {
+      return { message: `No expenses found for ${month}/${year}.`, expenses: [] };
+    }
+
     const categories = await this.categoryRepo.findForUser(userId);
     const catMap = new Map(categories.map((c) => [c.id, c.name]));
 
-    return expenses.slice(0, limit).map((e) => ({
-      description: e.description ?? 'No description',
-      amount: e.amount,
-      category: catMap.get(e.categoryId ?? '') ?? 'Uncategorized',
-      date: e.date instanceof Date ? e.date.toISOString().split('T')[0] : e.date,
-    }));
+    return {
+      month,
+      year,
+      count: Math.min(expenses.length, limit),
+      expenses: expenses.slice(0, limit).map((e) => ({
+        description: e.description ?? 'No description',
+        amount: e.amount,
+        category: catMap.get(e.categoryId ?? '') ?? 'Uncategorized',
+        date: e.date instanceof Date ? e.date.toISOString().split('T')[0] : e.date,
+      })),
+    };
   }
 
   private async getExpenseSummary(userId: string, args: Record<string, unknown>): Promise<unknown> {
     const { month, year } = GetExpenseSummaryArgsSchema.parse(args);
     const total = await this.expenseRepo.sumByUserAndPeriod(userId, month, year);
     const byCategory = await this.expenseRepo.sumByCategoryAndPeriod(userId, month, year);
+
+    if (total === 0 && byCategory.length === 0) {
+      return { message: `No spending recorded for ${month}/${year}.`, month, year, totalSpending: 0, byCategory: [] };
+    }
 
     return {
       month,
@@ -160,27 +174,43 @@ export class FinancialToolService implements IToolService {
   private async getBudgets(userId: string, args: Record<string, unknown>): Promise<unknown> {
     const { month, year } = GetBudgetsArgsSchema.parse(args);
     const budgetList = await this.budgetRepo.findByUserAndPeriod(userId, month, year);
+
+    if (budgetList.length === 0) {
+      return { message: `No budgets set for ${month}/${year}.`, budgets: [] };
+    }
+
     const categories = await this.categoryRepo.findForUser(userId);
     const catMap = new Map(categories.map((c) => [c.id, c.name]));
 
-    return budgetList.map((b) => ({
-      category: b.categoryId ? catMap.get(b.categoryId) ?? 'Unknown' : 'Total Budget',
-      amount: b.amount,
-      month: b.month,
-      year: b.year,
-    }));
+    return {
+      month,
+      year,
+      budgets: budgetList.map((b) => ({
+        category: b.categoryId ? catMap.get(b.categoryId) ?? 'Unknown' : 'Total Budget',
+        amount: b.amount,
+      })),
+    };
   }
 
   private async getIncome(userId: string, args: Record<string, unknown>): Promise<unknown> {
     const { month, year } = GetIncomeArgsSchema.parse(args);
     const incomeList = await this.incomeRepo.findByUserAndPeriod(userId, month, year);
 
-    return incomeList.map((i) => ({
-      source: i.source ?? 'Unknown source',
-      description: i.description ?? 'No description',
-      amount: i.amount,
-      date: i.date instanceof Date ? i.date.toISOString().split('T')[0] : i.date,
-    }));
+    if (incomeList.length === 0) {
+      return { message: `No income recorded for ${month}/${year}.`, income: [] };
+    }
+
+    return {
+      month,
+      year,
+      count: incomeList.length,
+      income: incomeList.map((i) => ({
+        source: i.source ?? 'Unknown source',
+        description: i.description ?? 'No description',
+        amount: i.amount,
+        date: i.date instanceof Date ? i.date.toISOString().split('T')[0] : i.date,
+      })),
+    };
   }
 
   private async getIncomeSummary(userId: string, args: Record<string, unknown>): Promise<unknown> {

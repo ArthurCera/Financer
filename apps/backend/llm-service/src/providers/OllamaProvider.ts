@@ -1,9 +1,8 @@
 import { injectable } from 'tsyringe';
 import { BaseLLMProvider, LLMOptions } from '@financer/backend-shared';
 
-// Ollama can be slow on first inference (model loading) — set generous timeouts
-const COMPLETE_TIMEOUT_MS = 120_000; // 2 min for chat completions
-const EMBED_TIMEOUT_MS = 30_000;     // 30s for embeddings
+const COMPLETE_TIMEOUT_MS = 45_000;
+const EMBED_TIMEOUT_MS = 30_000;
 
 /** Strip <think>...</think> reasoning blocks produced by qwen3/qwen3.5 models */
 function stripThinkingBlocks(text: string): string {
@@ -24,18 +23,21 @@ export class OllamaProvider extends BaseLLMProvider {
   }
 
   protected async executeComplete(prompt: string, options?: LLMOptions): Promise<string> {
+    const think = options?.think !== false; // default: allow thinking
+
     const body: Record<string, unknown> = {
       model: this.chatModel,
       prompt,
       stream: false,
+      think,
       options: {
         temperature: options?.temperature ?? 0.7,
         ...(options?.maxTokens !== undefined && { num_predict: options.maxTokens }),
       },
     };
 
-    // Only force JSON format for low-temperature structured outputs (e.g., categorization)
-    if (options?.temperature !== undefined && options.temperature <= 0.2) {
+    // Only force JSON format when explicitly requested via format option
+    if (options?.format === 'json') {
       body['format'] = 'json';
     }
 

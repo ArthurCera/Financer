@@ -10,7 +10,7 @@ let _getAccessToken: (() => string | null) | null = null
 let _refreshTokens: (() => Promise<AuthTokens>) | null = null
 let _logout: (() => void) | null = null
 
-/** Get the current access token (used by SSE streaming) */
+/** Get the current access token */
 export function getAccessToken(): string | null {
   return _getAccessToken?.() ?? null
 }

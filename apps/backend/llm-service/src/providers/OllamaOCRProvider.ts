@@ -38,7 +38,8 @@ export class OllamaOCRProvider implements IOCRProvider {
     }
 
     const data = (await response.json()) as { message: { content: string } };
-    const rawText = data.message.content;
+    // Strip <think> blocks that some models produce even with format: json
+    const rawText = data.message.content.replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim();
 
     // Try to parse structured data, fall back gracefully
     let structuredData: Record<string, unknown> | undefined;
@@ -47,11 +48,28 @@ export class OllamaOCRProvider implements IOCRProvider {
       const validated = OCRExpenseSchema.safeParse(parsed);
       structuredData = validated.success
         ? (validated.data as Record<string, unknown>)
-        : parsed;
+        : pickKnownFields(parsed);
     } catch {
-      // Model returned non-JSON — return raw text only
+      // Model returned non-JSON — try to extract JSON from mixed text
+      const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          structuredData = pickKnownFields(JSON.parse(jsonMatch[0]));
+        } catch { /* truly not JSON */ }
+      }
     }
 
     return { text: rawText, structuredData };
   }
+}
+
+const OCR_KNOWN_FIELDS = ['amount', 'date', 'description', 'merchant', 'category'] as const;
+
+/** Extract only the fields OCRExpenseSchema expects, stripping any unknown keys */
+function pickKnownFields(raw: Record<string, unknown>): Record<string, unknown> | undefined {
+  const safe: Record<string, unknown> = {};
+  for (const field of OCR_KNOWN_FIELDS) {
+    if (raw[field] !== undefined) safe[field] = raw[field];
+  }
+  return Object.keys(safe).length > 0 ? safe : undefined;
 }

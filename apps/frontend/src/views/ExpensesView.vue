@@ -38,12 +38,22 @@
             {{ y }}
           </option>
         </select>
+        <label class="flex items-center gap-1.5 text-xs text-slate-600 select-none">
+          <input
+            v-model="recategorizeAll"
+            type="checkbox"
+            class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Include already categorized
+        </label>
         <AppButton
           variant="secondary"
           :loading="llmStore.categorizeBatchLoading"
+          :disabled="llmStore.categorizeBatchLoading"
           @click="handleCategorizeBatch"
         >
           <svg
+            v-if="!llmStore.categorizeBatchLoading"
             class="w-4 h-4 mr-1.5"
             fill="none"
             stroke="currentColor"
@@ -56,7 +66,7 @@
               d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
             />
           </svg>
-          Auto-categorize
+          {{ llmStore.categorizeBatchLoading ? 'Categorizing...' : 'Auto-categorize' }}
         </AppButton>
         <AppButton @click="openCreate">
           <svg
@@ -109,11 +119,16 @@
       <template #cell-date="{ value }">
         {{ formatDate(value as string) }}
       </template>
-      <template #cell-category="{ value }">
+      <template #cell-category="{ value, row }">
         <span
           v-if="value"
-          class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700"
+          class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
+          :style="{
+            backgroundColor: (row['categoryColor'] as string) + '18',
+            color: row['categoryColor'] as string,
+          }"
         >
+          <CategoryIcon :icon="row['categoryIcon'] as string" />
           {{ value }}
         </span>
         <span
@@ -123,6 +138,16 @@
       </template>
       <template #actions="{ row }">
         <div class="flex items-center justify-end gap-2">
+          <AppButton
+            v-if="!row['categoryId']"
+            variant="secondary"
+            size="sm"
+            :loading="llmStore.categorizingId === row['id']"
+            :disabled="!!llmStore.categorizingId"
+            @click="handleCategorizeExpense(row['id'] as string)"
+          >
+            Categorize
+          </AppButton>
           <AppButton
             variant="secondary"
             size="sm"
@@ -207,6 +232,7 @@ import AppTable, { type TableColumn } from '../components/common/AppTable.vue'
 import AppModal from '../components/common/AppModal.vue'
 import ExpenseForm from '../components/forms/ExpenseForm.vue'
 import ErrorBanner from '../components/common/ErrorBanner.vue'
+import CategoryIcon from '../components/common/CategoryIcon.vue'
 import { useExpenseStore } from '../stores/expense.store'
 import { useLLMStore } from '../stores/llm.store'
 import { useCategoryStore } from '../stores/category.store'
@@ -226,6 +252,7 @@ const showModal = ref(false)
 const editingExpense = ref<ExpenseResponse | null>(null)
 const deletingId = ref<string | null>(null)
 const categorizeMsg = ref<string | null>(null)
+const recategorizeAll = ref(false)
 const scrollSentinel = ref<HTMLElement | null>(null)
 
 const months = MONTHS
@@ -241,14 +268,29 @@ const columns: TableColumn[] = [
   { key: 'amount', label: 'Amount', align: 'right' },
 ]
 
+/** Map categoryId → {color, icon} from the category store */
+const categoryMap = computed(() => {
+  const map = new Map<string, { color: string; icon: string }>()
+  for (const c of categoryStore.categories) {
+    map.set(c.id, { color: c.color, icon: c.icon })
+  }
+  return map
+})
+
 const tableRows = computed<Record<string, unknown>[]>(() =>
-  expenseStore.expenses.map((e) => ({
-    id: e.id,
-    date: e.date,
-    description: e.description ?? '—',
-    category: e.categoryName,
-    amount: e.amount,
-  }))
+  expenseStore.expenses.map((e) => {
+    const cat = e.categoryId ? categoryMap.value.get(e.categoryId) : null
+    return {
+      id: e.id,
+      date: e.date,
+      description: e.description ?? '—',
+      category: e.categoryName,
+      categoryId: e.categoryId,
+      categoryColor: cat?.color ?? '#9CA3AF',
+      categoryIcon: cat?.icon ?? 'tag',
+      amount: e.amount,
+    }
+  })
 )
 
 const fetchingInitial = ref(false)
@@ -300,12 +342,33 @@ async function handleDelete(id: string): Promise<void> {
   }
 }
 
+async function handleCategorizeExpense(id: string): Promise<void> {
+  const result = await llmStore.categorizeExpense(id)
+  if (result) {
+    const expense = expenseStore.expenses.find((e) => e.id === id)
+    if (expense) {
+      expense.categoryId = result.categoryId
+      expense.categoryName = result.categoryName
+    }
+  }
+}
+
 async function handleCategorizeBatch(): Promise<void> {
   categorizeMsg.value = null
-  const success = await llmStore.categorizeBatch(selectedMonth.value, selectedYear.value)
-  if (success) {
-    categorizeMsg.value = 'Batch categorization queued — refresh in a moment to see results.'
-    setTimeout(() => { categorizeMsg.value = null }, 8000)
+  const result = await llmStore.categorizeBatch(selectedMonth.value, selectedYear.value, recategorizeAll.value)
+  if (result) {
+    if (result.total === 0) {
+      categorizeMsg.value = recategorizeAll.value
+        ? 'No expenses found for this period.'
+        : 'No uncategorized expenses found for this period.'
+    } else if (result.failed === 0) {
+      categorizeMsg.value = `Categorized ${result.categorized} expense${result.categorized === 1 ? '' : 's'}.`
+      await loadExpenses()
+    } else {
+      categorizeMsg.value = `Categorized ${result.categorized} of ${result.total} expenses (${result.failed} failed).`
+      await loadExpenses()
+    }
+    setTimeout(() => { categorizeMsg.value = null }, 5000)
   }
 }
 

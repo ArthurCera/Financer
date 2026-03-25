@@ -24,7 +24,7 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3002
-    lambdaPort: 4002
+    lambdaPort: 0
     noPrependStageInUrl: true
 
 functions:

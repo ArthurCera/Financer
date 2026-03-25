@@ -41,7 +41,13 @@ cleanup() {
   echo ""
   echo -e "${YELLOW}Stopping all backend services...${NC}"
   for pid in "${PIDS[@]}"; do
-    kill "$pid" 2>/dev/null || true
+    # Kill the entire process group so child processes (serverless, sed) also terminate
+    kill -- -"$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+  done
+  # Give processes a moment to exit, then force-kill any survivors
+  sleep 1
+  for pid in "${PIDS[@]}"; do
+    kill -9 -- -"$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
   done
   echo -e "${GREEN}All services stopped.${NC}"
 }
@@ -85,11 +91,10 @@ for SERVICE in "${!SERVICE_PORTS[@]}"; do
     continue
   fi
 
-  LAMBDA_PORT=$((PORT + 1000))
-  echo -e "${YELLOW}[${SERVICE}] Starting on port ${PORT} (lambda: ${LAMBDA_PORT})...${NC}"
+  echo -e "${YELLOW}[${SERVICE}] Starting on port ${PORT}...${NC}"
   (
     cd "$SERVICE_DIR"
-    pnpm serverless offline --httpPort "$PORT" --lambdaPort "$LAMBDA_PORT" --noPrependStageInUrl 2>&1 \
+    pnpm serverless offline --httpPort "$PORT" --lambdaPort 0 --noPrependStageInUrl 2>&1 \
       | sed "s/^/[${SERVICE}] /"
   ) &
   PIDS+=($!)

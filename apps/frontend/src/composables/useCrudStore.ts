@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 import type { AxiosInstance } from 'axios'
 import { unwrapPaginated, type PaginationMeta } from '../services/api.service'
 import { extractErrorMessage } from '../utils/errors'
@@ -20,7 +20,7 @@ export function useCrudStore<
   TCreate = unknown,
   TUpdate = unknown,
 >(api: AxiosInstance, basePath: string, pageSize: number = DEFAULT_PAGE_SIZE) {
-  const items = ref<TResponse[]>([])
+  const items = ref<TResponse[]>([]) as Ref<TResponse[]>
   const loading = ref(false)
   const mutating = ref(false)
   const error = ref<string | null>(null)

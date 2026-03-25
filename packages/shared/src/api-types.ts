@@ -241,6 +241,7 @@ export interface OCRExpenseData {
   description?: string;
   merchant?: string;
   category?: string;
+  categoryId?: string;
 }
 
 export interface OCRResponse {
@@ -259,6 +260,8 @@ export interface CategorizeRequest {
 export interface CategorizeBatchRequest {
   month: number;
   year: number;
+  /** When true, re-categorize all expenses (not just uncategorized ones) */
+  recategorizeAll?: boolean;
 }
 
 export interface CategorizeResponse {
@@ -266,6 +269,12 @@ export interface CategorizeResponse {
   categoryId: string;
   categoryName: string;
   confidence: number;
+}
+
+export interface CategorizeBatchResult {
+  total: number;
+  categorized: number;
+  failed: number;
 }
 
 // ---------------------------------------------------------------------------

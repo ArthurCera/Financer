@@ -1,32 +1,30 @@
+import { createHash } from 'node:crypto';
 import { injectable, inject } from 'tsyringe';
 import {
   ILLMProvider,
-  IQueueService,
+  ICacheService,
   ICategoryRepository,
   IExpenseRepository,
   NotFoundError,
   CategoryDto,
   ExpenseDto,
 } from '@financer/backend-shared';
-import type { CategorizeResponse } from '@financer/shared';
-import { CategorizeResponseSchema } from '../validators/llm.validator';
+import type { CategorizeResponse, CategorizeBatchResult } from '@financer/shared';
 import { CATEGORIZE_SYSTEM } from '../prompts';
 
 type CategoryInfo = Pick<CategoryDto, 'id' | 'name'>;
+type MatchResult = { categoryId: string; categoryName: string; confidence: number };
 
-interface BatchJob {
-  userId: string;
-  month: number;
-  year: number;
-}
-
-const BATCH_CONCURRENCY = 3;
+const BATCH_CONCURRENCY = 5;
 
 @injectable()
 export class CategorizationService {
+  /** TTL for cached categorization results (1 hour) */
+  private static readonly CACHE_TTL = 3600;
+
   constructor(
     @inject('ILLMProvider') private readonly llmProvider: ILLMProvider,
-    @inject('IQueueService') private readonly queueService: IQueueService,
+    @inject('ICacheService') private readonly cache: ICacheService,
     @inject('ICategoryRepository') private readonly categoryRepo: ICategoryRepository,
     @inject('IExpenseRepository') private readonly expenseRepo: IExpenseRepository,
   ) {}
@@ -37,129 +35,196 @@ export class CategorizationService {
       throw new NotFoundError('Expense', expenseId);
     }
 
-    const allCategories = await this.categoryRepo.findAll();
+    const userCategories = await this.categoryRepo.findForUser(userId);
+    const match = await this.categorizeExpense(expense, userCategories);
 
-    const prompt = this.buildPrompt(
-      expense.description ?? 'No description',
-      expense.amount,
-      expense.date instanceof Date ? expense.date.toISOString().split('T')[0] : String(expense.date),
-      allCategories,
-    );
-
-    const rawResponse = await this.llmProvider.complete(prompt, {
-      systemPrompt: CATEGORIZE_SYSTEM,
-      temperature: 0.1,
-    });
-
-    const parsed = this.parseResponse(rawResponse, allCategories);
-
-    await this.expenseRepo.update(expenseId, { categoryId: parsed.categoryId });
+    await this.expenseRepo.update(expenseId, { categoryId: match.categoryId });
 
     return {
       expenseId,
-      categoryId: parsed.categoryId,
-      categoryName: parsed.categoryName,
-      confidence: parsed.confidence,
+      categoryId: match.categoryId,
+      categoryName: match.categoryName,
+      confidence: match.confidence,
     };
   }
 
-  async categorizeBatch(userId: string, month: number, year: number): Promise<void> {
-    const job: BatchJob = { userId, month, year };
-    await this.queueService.publish('llm.categorize-batch', job);
-  }
+  async categorizeBatchSync(userId: string, month: number, year: number, recategorizeAll?: boolean): Promise<CategorizeBatchResult> {
+    const expenses = recategorizeAll
+      ? await this.expenseRepo.findByUserAndPeriod(userId, month, year)
+      : await this.expenseRepo.findUncategorizedByUserAndPeriod(userId, month, year);
+    const total = expenses.length;
+    if (total === 0) return { total: 0, categorized: 0, failed: 0 };
 
-  async processBatchJob(job: BatchJob): Promise<void> {
-    const { userId, month, year } = job;
+    const userCategories = await this.categoryRepo.findForUser(userId);
+    let categorized = 0;
 
-    const uncategorized = await this.expenseRepo.findUncategorizedByUserAndPeriod(userId, month, year);
-    const allCategories = await this.categoryRepo.findAll();
-
-    for (let i = 0; i < uncategorized.length; i += BATCH_CONCURRENCY) {
-      const batch = uncategorized.slice(i, i + BATCH_CONCURRENCY);
-      await Promise.allSettled(
-        batch.map((expense) => this.categorizeOne(expense, allCategories)),
+    for (let i = 0; i < expenses.length; i += BATCH_CONCURRENCY) {
+      const batch = expenses.slice(i, i + BATCH_CONCURRENCY);
+      const results = await Promise.allSettled(
+        batch.map(async (expense) => {
+          const match = await this.categorizeExpense(expense, userCategories);
+          await this.expenseRepo.update(expense.id, { categoryId: match.categoryId });
+        }),
       );
+      categorized += results.filter((r) => r.status === 'fulfilled').length;
     }
+
+    return { total, categorized, failed: total - categorized };
   }
 
-  async startBatchWorker(): Promise<void> {
-    await this.queueService.consume<BatchJob>('llm.categorize-batch', async (job) => {
-      await this.processBatchJob(job);
-    });
-  }
-
-  private async categorizeOne(
-    expense: ExpenseDto,
-    allCategories: CategoryInfo[],
-  ): Promise<void> {
+  /**
+   * Categorize a description+amount against the user's categories.
+   * Used by OCR to resolve a category after extracting expense data from a receipt.
+   */
+  async categorizeDescription(
+    userId: string,
+    description: string,
+    amount: number,
+  ): Promise<{ categoryId: string; categoryName: string } | null> {
     try {
-      const dateStr = expense.date instanceof Date
-        ? expense.date.toISOString().split('T')[0]
-        : String(expense.date);
+      const categories = await this.categoryRepo.findForUser(userId);
+      const categoryNames = categories.map((c) => c.name);
+      const cacheKey = this.buildCacheKey(description, amount, categoryNames);
 
-      const prompt = this.buildPrompt(
-        expense.description ?? 'No description',
-        expense.amount,
-        dateStr,
-        allCategories,
-      );
+      const cached = await this.cache.get<MatchResult>(cacheKey).catch(() => null);
+      if (cached && cached.confidence >= 0.7) {
+        return { categoryId: cached.categoryId, categoryName: cached.categoryName };
+      }
+
+      const prompt = `Description: "${description}"
+Amount: $${amount.toFixed(2)}
+
+Categories: ${categoryNames.join(', ')}
+
+Category:`;
 
       const rawResponse = await this.llmProvider.complete(prompt, {
         systemPrompt: CATEGORIZE_SYSTEM,
-        temperature: 0.1,
+        temperature: 0,
+        maxTokens: 20,
+        think: false,
       });
 
-      const parsed = this.parseResponse(rawResponse, allCategories);
+      const result = this.matchCategory(rawResponse, categories);
+      if (result.confidence >= 0.7) {
+        this.cache.set(cacheKey, result, CategorizationService.CACHE_TTL).catch(() => {});
+        return { categoryId: result.categoryId, categoryName: result.categoryName };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 
-      await this.expenseRepo.update(expense.id, { categoryId: parsed.categoryId });
+  // ---------------------------------------------------------------------------
+  // Private
+  // ---------------------------------------------------------------------------
+
+  private async categorizeExpense(
+    expense: ExpenseDto,
+    categories: CategoryInfo[],
+  ): Promise<MatchResult> {
+    const description = expense.description ?? 'No description';
+    const categoryNames = categories.map((c) => c.name);
+    const cacheKey = this.buildCacheKey(description, expense.amount, categoryNames);
+
+    // Check cache first — identical description+amount+categories → same result
+    try {
+      const cached = await this.cache.get<MatchResult>(cacheKey);
+      if (cached) return cached;
+    } catch { /* cache miss or Redis down — continue to LLM */ }
+
+    try {
+      const prompt = `Description: "${description}"
+Amount: $${expense.amount.toFixed(2)}
+
+Categories: ${categoryNames.join(', ')}
+
+Category:`;
+
+      const rawResponse = await this.llmProvider.complete(prompt, {
+        systemPrompt: CATEGORIZE_SYSTEM,
+        temperature: 0,
+        maxTokens: 20,
+        think: false,
+      });
+
+      const result = this.matchCategory(rawResponse, categories);
+
+      // Only cache high-confidence results (not fallbacks)
+      if (result.confidence >= 0.7) {
+        this.cache.set(cacheKey, result, CategorizationService.CACHE_TTL).catch(() => {});
+      }
+
+      return result;
     } catch (error) {
       console.error(`[LLM] Failed to categorize expense ${expense.id}:`, error);
+      return this.fallback(categories);
     }
   }
 
-  private buildPrompt(
-    description: string,
-    amount: number,
-    date: string,
-    categoryList: CategoryInfo[],
-  ): string {
-    const categoriesJson = categoryList.map((c) => ({ id: c.id, name: c.name }));
-    return `Expense: "${description}", amount: $${amount.toFixed(2)}, date: ${date}\n\nAvailable categories:\n${JSON.stringify(categoriesJson, null, 2)}`;
+  /** Deterministic cache key from the inputs that affect categorization output */
+  private buildCacheKey(description: string, amount: number, categoryNames: string[]): string {
+    const hash = createHash('sha256')
+      .update(`${description}|${amount.toFixed(2)}|${categoryNames.join(',')}`)
+      .digest('hex')
+      .slice(0, 16);
+    return `llm:categorize:${hash}`;
   }
 
-  private parseResponse(
+  /**
+   * Match the LLM's plain-text response against known category names.
+   * Tries exact match, then case-insensitive, then substring contains.
+   */
+  private matchCategory(
     raw: string,
-    allCategories: CategoryInfo[],
-  ): { categoryId: string; categoryName: string; confidence: number } {
+    categories: CategoryInfo[],
+  ): MatchResult {
+    // Strip think blocks + any surrounding quotes/whitespace/punctuation
+    const cleaned = raw
+      .replace(/<think>[\s\S]*?<\/think>\s*/g, '')
+      .replace(/^[\s"'`*]+|[\s"'`*.,!]+$/g, '')
+      .trim();
+
+    if (!cleaned) {
+      console.warn('[LLM] Categorization returned empty response after cleanup');
+      return this.fallback(categories);
+    }
+
+    const lower = cleaned.toLowerCase();
+
+    // 1. Exact match (case-insensitive)
+    const exact = categories.find((c) => c.name.toLowerCase() === lower);
+    if (exact) return { categoryId: exact.id, categoryName: exact.name, confidence: 0.9 };
+
+    // 2. Response contains a category name (e.g. "The category is Food")
+    const contained = categories.find((c) => lower.includes(c.name.toLowerCase()));
+    if (contained) return { categoryId: contained.id, categoryName: contained.name, confidence: 0.8 };
+
+    // 3. Category name contains the response (e.g. response "food" matches "Food & Dining")
+    const partial = categories.find((c) => c.name.toLowerCase().includes(lower));
+    if (partial) return { categoryId: partial.id, categoryName: partial.name, confidence: 0.7 };
+
+    // 4. Try to parse as JSON in case model returned it anyway
     try {
-      const parsed = JSON.parse(raw);
-      const validated = CategorizeResponseSchema.safeParse(parsed);
-      if (validated.success) {
-        const found = allCategories.find((c) => c.id === validated.data.categoryId);
-        if (found) return validated.data;
-      }
-
-      if (parsed.categoryName) {
-        const match = allCategories.find(
-          (c) => c.name.toLowerCase() === parsed.categoryName.toLowerCase(),
+      const parsed = JSON.parse(cleaned);
+      const name = parsed.categoryName ?? parsed.category ?? parsed.name;
+      if (name) {
+        const jsonMatch = categories.find(
+          (c) => c.name.toLowerCase() === String(name).toLowerCase(),
         );
-        if (match) {
-          return {
-            categoryId: match.id,
-            categoryName: match.name,
-            confidence: parsed.confidence ?? 0.5,
-          };
-        }
+        if (jsonMatch) return { categoryId: jsonMatch.id, categoryName: jsonMatch.name, confidence: 0.8 };
       }
-    } catch {
-      // JSON parse failed
-    }
+    } catch { /* not JSON, that's fine */ }
 
-    const otherCat = allCategories.find((c) => c.name.toLowerCase() === 'other');
-    const fallback = otherCat ?? allCategories[0];
-    if (!fallback) {
-      throw new Error('No categories available for fallback categorization');
-    }
-    return { categoryId: fallback.id, categoryName: fallback.name, confidence: 0.1 };
+    console.warn(`[LLM] Could not match category from response: "${cleaned.slice(0, 100)}"`);
+    return this.fallback(categories);
+  }
+
+  private fallback(categories: CategoryInfo[]): MatchResult {
+    const other = categories.find((c) => c.name.toLowerCase() === 'other');
+    const fb = other ?? categories[0];
+    if (!fb) throw new Error('No categories available');
+    return { categoryId: fb.id, categoryName: fb.name, confidence: 0.1 };
   }
 }
