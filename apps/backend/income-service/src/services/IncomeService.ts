@@ -1,8 +1,10 @@
 import { injectable, inject } from 'tsyringe';
 import {
   IIncomeRepository,
+  ICacheService,
   IncomeDto,
-  NotFoundError,
+  findOwnedOrThrow,
+  invalidateDashboardCache,
 } from '@financer/backend-shared';
 import { CreateIncomeRequest, UpdateIncomeRequest, IncomeResponse } from '@financer/shared';
 
@@ -10,16 +12,33 @@ import { CreateIncomeRequest, UpdateIncomeRequest, IncomeResponse } from '@finan
 export class IncomeService {
   constructor(
     @inject('IIncomeRepository') private readonly incomeRepo: IIncomeRepository,
+    @inject('ICacheService') private readonly cache: ICacheService,
   ) {}
 
-  async list(userId: string, month?: number, year?: number): Promise<IncomeResponse[]> {
+  async list(
+    userId: string,
+    month?: number,
+    year?: number,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ items: IncomeResponse[]; total: number }> {
     let incomeList: IncomeDto[];
+    let total: number;
+
     if (month !== undefined && year !== undefined) {
-      incomeList = await this.incomeRepo.findByUserAndPeriod(userId, month, year);
+      [incomeList, total] = await Promise.all([
+        this.incomeRepo.findByUserAndPeriodPaginated(userId, month, year, limit, offset),
+        this.incomeRepo.countByUserAndPeriod(userId, month, year),
+      ]);
     } else {
-      incomeList = await this.incomeRepo.findAll({ userId });
+      [incomeList, total] = await Promise.all([
+        this.incomeRepo.findByUserPaginated(userId, limit, offset),
+        this.incomeRepo.countByUser(userId),
+      ]);
     }
-    return incomeList.map((income) => this.toResponse(income));
+
+    const items = incomeList.map((income) => this.toResponse(income));
+    return { items, total };
   }
 
   async create(userId: string, data: CreateIncomeRequest): Promise<IncomeResponse> {
@@ -30,6 +49,7 @@ export class IncomeService {
       source: data.source ?? null,
       date: new Date(data.date) as unknown as Date,
     });
+    await invalidateDashboardCache(this.cache, userId);
     return this.toResponse(income);
   }
 
@@ -38,10 +58,7 @@ export class IncomeService {
     id: string,
     data: UpdateIncomeRequest,
   ): Promise<IncomeResponse> {
-    const existing = await this.incomeRepo.findById(id);
-    if (!existing || existing.userId !== userId) {
-      throw new NotFoundError('Income', id);
-    }
+    await findOwnedOrThrow(this.incomeRepo, id, userId, 'Income');
 
     const partial: Partial<Omit<IncomeDto, 'id' | 'createdAt'>> = {};
     if (data.amount !== undefined) partial.amount = data.amount;
@@ -50,15 +67,14 @@ export class IncomeService {
     if (data.date !== undefined) partial.date = new Date(data.date) as unknown as Date;
 
     const updated = await this.incomeRepo.update(id, partial);
+    await invalidateDashboardCache(this.cache, userId);
     return this.toResponse(updated);
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    const existing = await this.incomeRepo.findById(id);
-    if (!existing || existing.userId !== userId) {
-      throw new NotFoundError('Income', id);
-    }
+    await findOwnedOrThrow(this.incomeRepo, id, userId, 'Income');
     await this.incomeRepo.delete(id);
+    await invalidateDashboardCache(this.cache, userId);
   }
 
   toResponse(income: IncomeDto): IncomeResponse {

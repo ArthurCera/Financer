@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import { container } from 'tsyringe';
-import { db, RedisService } from '@financer/backend-shared';
-import { CategoryRepository } from './repositories/CategoryRepository';
+import { db, RedisService, CategoryRepository } from '@financer/backend-shared';
 import { ExpenseRepository } from './repositories/ExpenseRepository';
 import { ExpenseService } from './services/ExpenseService';
 

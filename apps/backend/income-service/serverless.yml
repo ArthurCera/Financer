@@ -24,23 +24,33 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3004
+    lambdaPort: 4004
     noPrependStageInUrl: true
 
 functions:
   health:
     handler: src/handlers/handler.health
     events:
-      - http: { method: GET, path: /health }
+      - http:
+          method: GET
+          path: /health
+          cors: true
 
   listIncome:
     handler: src/handlers/handler.listIncome
     events:
-      - http: { method: GET, path: /income }
+      - http:
+          method: GET
+          path: /income
+          cors: true
 
   createIncome:
     handler: src/handlers/handler.createIncome
     events:
-      - http: { method: POST, path: /income }
+      - http:
+          method: POST
+          path: /income
+          cors: true
 
   updateIncome:
     handler: src/handlers/handler.updateIncome
@@ -48,6 +58,7 @@ functions:
       - http:
           method: PUT
           path: /income/{id}
+          cors: true
 
   deleteIncome:
     handler: src/handlers/handler.deleteIncome
@@ -55,3 +66,4 @@ functions:
       - http:
           method: DELETE
           path: /income/{id}
+          cors: true

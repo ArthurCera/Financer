@@ -152,4 +152,83 @@ describe('Dashboard Service (port 3005)', () => {
     });
     expect(res.status).toBe(403);
   });
+
+  // -------------------------------------------------------------------------
+  // Dashboard: new fields (allTimeNetSavings, recentExpenses, llmStats)
+  // -------------------------------------------------------------------------
+  it('GET /dashboard includes allTimeNetSavings, recentExpenses, and llmStats', async () => {
+    const res = await request('dashboard', 'GET', '/dashboard', {
+      token: demoTokens.accessToken,
+    });
+    expect(res.status).toBe(200);
+    const data = res.body.data as any;
+    expect(data).toHaveProperty('allTimeNetSavings');
+    expect(typeof data.allTimeNetSavings).toBe('number');
+    expect(data).toHaveProperty('recentExpenses');
+    expect(Array.isArray(data.recentExpenses)).toBe(true);
+    expect(data).toHaveProperty('llmStats');
+    expect(data.llmStats).toHaveProperty('chatMessageCount');
+    expect(data.llmStats).toHaveProperty('categorizationsCount');
+    expect(data.llmStats).toHaveProperty('lastChatAt');
+  });
+
+  // -------------------------------------------------------------------------
+  // Admin: GET /admin/llm-stats (detailed stats)
+  // -------------------------------------------------------------------------
+  it('GET /admin/llm-stats returns detailed LLM analytics for admin', async () => {
+    const res = await request('dashboard', 'GET', '/admin/llm-stats', {
+      token: adminTokens.accessToken,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    const data = res.body.data as any;
+    expect(data).toHaveProperty('totalChats');
+    expect(data).toHaveProperty('totalMessages');
+    expect(data).toHaveProperty('avgMessagesPerUser');
+    expect(data).toHaveProperty('activeUsersLast7Days');
+    expect(data).toHaveProperty('topUsers');
+    expect(Array.isArray(data.topUsers)).toBe(true);
+  });
+
+  it('GET /admin/llm-stats rejects non-admin user', async () => {
+    const res = await request('dashboard', 'GET', '/admin/llm-stats', {
+      token: userTokens.accessToken,
+    });
+    expect(res.status).toBe(403);
+  });
+
+  // -------------------------------------------------------------------------
+  // Admin: PUT /admin/users/:id (role management)
+  // -------------------------------------------------------------------------
+  it('PUT /admin/users/:id updates a user role', async () => {
+    // Get user list to find a non-admin user
+    const listRes = await request('dashboard', 'GET', '/admin/users', {
+      token: adminTokens.accessToken,
+    });
+    const users = listRes.body.data as any[];
+    const demoUser = users.find((u: any) => u.email === 'demo@financer.local');
+    if (!demoUser) return;
+
+    // Toggle to admin
+    const res = await request('dashboard', 'PUT', `/admin/users/${demoUser.id}`, {
+      token: adminTokens.accessToken,
+      body: { role: 'admin' },
+    });
+    expect(res.status).toBe(200);
+
+    // Toggle back to user
+    const revert = await request('dashboard', 'PUT', `/admin/users/${demoUser.id}`, {
+      token: adminTokens.accessToken,
+      body: { role: 'user' },
+    });
+    expect(revert.status).toBe(200);
+  });
+
+  it('PUT /admin/users/:id rejects non-admin user', async () => {
+    const res = await request('dashboard', 'PUT', '/admin/users/a0000000-0000-0000-0000-000000000001', {
+      token: userTokens.accessToken,
+      body: { role: 'admin' },
+    });
+    expect(res.status).toBe(403);
+  });
 });

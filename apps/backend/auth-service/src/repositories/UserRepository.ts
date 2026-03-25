@@ -1,9 +1,9 @@
 import { injectable, inject } from 'tsyringe';
-import { BaseRepository, IUserRepository, UserDto, users, UserRow, eq } from '@financer/backend-shared';
+import { BaseRepository, IUserRepository, UserDto, users, UserRow, eq, type DrizzleDB } from '@financer/backend-shared';
 
 @injectable()
 export class UserRepository extends BaseRepository<UserDto> implements IUserRepository {
-  constructor(@inject('db') db: any) {
+  constructor(@inject('db') db: DrizzleDB) {
     super(db);
   }
 

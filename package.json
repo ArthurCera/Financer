@@ -14,6 +14,8 @@
     "nuke": "bash scripts/nuke.sh",
     "nuke:force": "bash scripts/nuke.sh --force",
     "docker:logs": "docker compose logs -f",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "typecheck": "pnpm -r tsc --noEmit",
     "test:backend": "vitest run --config vitest.config.ts",
     "test:backend:watch": "vitest --config vitest.config.ts"
@@ -22,7 +24,19 @@
     "node": ">=20.0.0",
     "pnpm": ">=9.0.0"
   },
+  "pnpm": {
+    "overrides": {
+      "tar": ">=7.5.10",
+      "esbuild": ">=0.25.0"
+    }
+  },
   "devDependencies": {
-    "vitest": "^2.1.9"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0",
+    "eslint-plugin-vue": "^10.8.0",
+    "globals": "^17.4.0",
+    "typescript-eslint": "^8.57.2",
+    "vitest": "^2.1.9",
+    "vue-eslint-parser": "^10.4.0"
   }
 }

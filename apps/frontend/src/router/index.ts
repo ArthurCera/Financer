@@ -1,6 +1,14 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '../stores/auth.store'
 
+declare module 'vue-router' {
+  interface RouteMeta {
+    layout?: string
+    requiresAuth?: boolean
+    requiresAdmin?: boolean
+  }
+}
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -37,9 +45,19 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/categories',
+    name: 'categories',
+    component: () => import('../views/CategoriesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/admin',
     component: () => import('../views/AdminView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/dashboard',
   },
 ]
 
@@ -56,15 +74,19 @@ router.beforeEach(async (to) => {
   // On first navigation, try to restore session from stored refresh token
   if (!_initialized) {
     _initialized = true
-    await auth.initialize()
+    try {
+      await auth.initialize()
+    } catch (err) {
+      console.error('[Router] Auth initialization failed:', err)
+    }
   }
 
-  if (to.meta['requiresAuth'] && !auth.isAuthenticated) {
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
 
   // Admin-only routes
-  if (to.meta['requiresAdmin'] && auth.user?.role !== 'admin') {
+  if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
     return { path: '/dashboard' }
   }
 

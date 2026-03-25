@@ -1,7 +1,7 @@
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { UnauthorizedError } from '../types';
 
-interface AccessTokenPayload {
+export interface AccessTokenPayload {
   sub: string;
   role: 'user' | 'admin';
   type: 'access';
@@ -12,29 +12,44 @@ interface RefreshTokenPayload {
   type: 'refresh';
 }
 
-function getSecret(): string {
+function getAccessSecret(): string {
   const secret = process.env.JWT_SECRET;
   if (!secret) throw new Error('JWT_SECRET environment variable is not set');
   return secret;
 }
 
+function getRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET;
+  if (!secret) {
+    // Fall back to JWT_SECRET only in development — production must set JWT_REFRESH_SECRET
+    const fallback = process.env.JWT_SECRET;
+    if (!fallback) throw new Error('JWT_REFRESH_SECRET environment variable is not set');
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('JWT_REFRESH_SECRET must be set separately from JWT_SECRET in production');
+    }
+    console.warn('[JWT] WARNING: JWT_REFRESH_SECRET not set — falling back to JWT_SECRET. Set a separate secret for production.');
+    return fallback;
+  }
+  return secret;
+}
+
 export function signAccessToken(userId: string, role: 'user' | 'admin' = 'user'): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return jwt.sign({ sub: userId, role, type: 'access' }, getSecret(), {
-    expiresIn: (process.env.JWT_EXPIRES_IN ?? '15m') as any,
+  const expiresIn = (process.env.JWT_EXPIRES_IN ?? '15m') as SignOptions['expiresIn'];
+  return jwt.sign({ sub: userId, role, type: 'access' }, getAccessSecret(), {
+    expiresIn,
   });
 }
 
 export function signRefreshToken(userId: string): string {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return jwt.sign({ sub: userId, type: 'refresh' }, getSecret(), {
-    expiresIn: (process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') as any,
+  const expiresIn = (process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') as SignOptions['expiresIn'];
+  return jwt.sign({ sub: userId, type: 'refresh' }, getRefreshSecret(), {
+    expiresIn,
   });
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
   try {
-    const payload = jwt.verify(token, getSecret()) as AccessTokenPayload;
+    const payload = jwt.verify(token, getAccessSecret()) as AccessTokenPayload;
     if (payload.type !== 'access') throw new UnauthorizedError('Invalid token type');
     return payload;
   } catch (error) {
@@ -45,7 +60,7 @@ export function verifyAccessToken(token: string): AccessTokenPayload {
 
 export function verifyRefreshToken(token: string): RefreshTokenPayload {
   try {
-    const payload = jwt.verify(token, getSecret()) as RefreshTokenPayload;
+    const payload = jwt.verify(token, getRefreshSecret()) as RefreshTokenPayload;
     if (payload.type !== 'refresh') throw new UnauthorizedError('Invalid token type');
     return payload;
   } catch (error) {

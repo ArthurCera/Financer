@@ -14,4 +14,4 @@ INSERT INTO categories (name, color, icon, is_default) VALUES
   ('Utilities',        '#6B7280', 'zap',            TRUE),
   ('Travel',           '#14B8A6', 'plane',          TRUE),
   ('Other',            '#9CA3AF', 'tag',            TRUE)
-ON CONFLICT (name) DO NOTHING;
+ON CONFLICT DO NOTHING;

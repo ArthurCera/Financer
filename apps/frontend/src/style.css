@@ -20,4 +20,32 @@
   .input-base {
     @apply w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-slate-50 disabled:cursor-not-allowed;
   }
+
+  .error-text {
+    @apply mt-1 text-xs text-red-600;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .badge-indigo {
+    @apply bg-indigo-100 text-indigo-700;
+  }
+
+  .badge-emerald {
+    @apply bg-emerald-100 text-emerald-700;
+  }
+
+  .empty-state {
+    @apply text-center py-12 text-slate-400;
+  }
+
+  .error-banner {
+    @apply mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700;
+  }
+
+  .view-header {
+    @apply flex flex-wrap items-center justify-between gap-4 mb-6;
+  }
 }

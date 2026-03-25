@@ -38,7 +38,15 @@ export const useAuthStore = defineStore('auth', () => {
     await fetchProfile()
   }
 
-  function logout(): void {
+  async function logout(): Promise<void> {
+    // Revoke refresh token on the server (best-effort)
+    try {
+      if (accessToken.value) {
+        await authApi.post('/auth/logout')
+      }
+    } catch {
+      // Server-side revocation failed — still clear local state
+    }
     accessToken.value = null
     user.value = null
     localStorage.removeItem(REFRESH_TOKEN_KEY)
@@ -72,7 +80,10 @@ export const useAuthStore = defineStore('auth', () => {
       await refreshTokens()
       await fetchProfile()
     } catch {
-      logout()
+      // Clear local state only — skip backend call during init failure
+      accessToken.value = null
+      user.value = null
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
     }
   }
 

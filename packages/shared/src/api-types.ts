@@ -26,15 +26,17 @@ export interface ApiError {
 
 export type ApiResult<T> = ApiResponse<T> | ApiError;
 
+export interface PaginationMeta {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
 export interface PaginatedResponse<T> {
   success: true;
   data: T[];
-  pagination: {
-    total: number;
-    page: number;
-    pageSize: number;
-    totalPages: number;
-  };
+  pagination: PaginationMeta;
 }
 
 // ---------------------------------------------------------------------------
@@ -68,6 +70,31 @@ export interface UserProfile {
   name: string;
   role: 'user' | 'admin';
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// Categories
+// ---------------------------------------------------------------------------
+
+export interface CategoryResponse {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface CreateCategoryRequest {
+  name: string;
+  color?: string;
+  icon?: string;
+}
+
+export interface UpdateCategoryRequest {
+  name?: string;
+  color?: string;
+  icon?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -120,6 +147,7 @@ export interface BudgetResponse {
   month: number;
   year: number;
   createdAt: string;
+  updatedAt: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -160,8 +188,25 @@ export interface DashboardResponse {
   totalExpenses: number;
   totalIncome: number;
   totalBudget: number;
+  allTimeNetSavings: number;
   expensesByCategory: CategoryBreakdownResponse[];
   budgetVsActual: BudgetComparisonResponse[];
+  recentExpenses: DashboardExpenseItem[];
+  llmStats: UserLLMStats;
+}
+
+export interface DashboardExpenseItem {
+  id: string;
+  amount: number;
+  description: string | null;
+  categoryName: string | null;
+  date: string;
+}
+
+export interface UserLLMStats {
+  chatMessageCount: number;
+  categorizationsCount: number;
+  lastChatAt: string | null;
 }
 
 export interface CategoryBreakdownResponse {
@@ -277,4 +322,19 @@ export interface AdminLLMUsageResponse {
     lastChatAt: string | null;
   }>;
   totalMessages: number;
+}
+
+export interface DetailedLLMStatsResponse {
+  totalChats: number;
+  totalMessages: number;
+  avgMessagesPerUser: number;
+  activeUsersLast7Days: number;
+  messagesLast7Days: number;
+  messagesLast30Days: number;
+  topUsers: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    messageCount: number;
+  }>;
 }

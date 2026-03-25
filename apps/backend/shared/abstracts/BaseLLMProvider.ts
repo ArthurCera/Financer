@@ -1,11 +1,7 @@
 import { ILLMProvider, LLMOptions } from '../interfaces/ILLMProvider';
-import { ICacheService } from '../interfaces/ICacheService';
-import { RateLimitError } from '../types';
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 500;
-/** Max LLM calls per user per minute — enforced via Redis */
-const RATE_LIMIT_PER_MINUTE = 20;
 
 /**
  * BaseLLMProvider
@@ -16,7 +12,6 @@ const RATE_LIMIT_PER_MINUTE = 20;
  * the three abstract methods. All shared cross-cutting concerns live here:
  *
  *  - Retry with exponential backoff
- *  - Per-user rate limiting via Redis
  *  - Structured request logging
  *
  * This follows the Template Method pattern:
@@ -24,7 +19,6 @@ const RATE_LIMIT_PER_MINUTE = 20;
  *   subclasses fill in the provider-specific steps.
  */
 export abstract class BaseLLMProvider implements ILLMProvider {
-  constructor(private readonly cache: ICacheService) {}
 
   // ---------------------------------------------------------------------------
   // Abstract — must be implemented by each concrete provider
@@ -45,24 +39,16 @@ export abstract class BaseLLMProvider implements ILLMProvider {
 
   async embed(text: string): Promise<number[]> {
     this.logRequest('embed', { textLength: text.length });
-    return this.withRetry(() => this.executeEmbed(text));
+    const result = await this.withRetry(() => this.executeEmbed(text));
+    if (result.length === 0) {
+      throw new Error('Embedding model returned empty vector');
+    }
+    return result;
   }
 
   // ---------------------------------------------------------------------------
   // Shared utilities
   // ---------------------------------------------------------------------------
-
-  /**
-   * Check and increment the rate limit counter for a user.
-   * Throws an AppError (429) if the limit is exceeded.
-   */
-  protected async checkRateLimit(userId: string): Promise<void> {
-    const key = `rate_limit:llm:${userId}`;
-    const count = await this.cache.increment(key, 60);
-    if (count > RATE_LIMIT_PER_MINUTE) {
-      throw new RateLimitError();
-    }
-  }
 
   /**
    * Retry a function up to MAX_RETRIES times with exponential backoff.
@@ -92,13 +78,20 @@ export abstract class BaseLLMProvider implements ILLMProvider {
     throw lastError;
   }
 
-  private isTransientError(error: Error): boolean {
-    const message = error.message.toLowerCase();
+  private isTransientError(error: unknown): boolean {
+    const err = error as { message?: string; code?: string; status?: number; statusCode?: number };
+    const message = (err.message ?? '').toLowerCase();
+    const code = (err.code ?? '').toUpperCase();
+    const status = err.status ?? err.statusCode ?? 0;
+
     return (
       message.includes('network') ||
       message.includes('timeout') ||
       message.includes('econnrefused') ||
-      message.includes('socket')
+      message.includes('econnreset') ||
+      message.includes('socket') ||
+      ['ECONNREFUSED', 'ECONNRESET', 'ENOTFOUND', 'EHOSTUNREACH', 'ENETUNREACH'].includes(code) ||
+      [429, 503, 504].includes(status)
     );
   }
 

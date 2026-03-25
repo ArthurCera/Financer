@@ -9,7 +9,9 @@ import { AuthTokens, UserProfile } from '@financer/shared';
 export interface IAuthService {
   register(email: string, password: string, name: string): Promise<{ user: UserProfile; tokens: AuthTokens }>;
   login(email: string, password: string): Promise<AuthTokens>;
-  /** Validate the provided refresh token and issue a new token pair. */
+  /** Validate the provided refresh token and issue a new token pair. Old token is revoked. */
   refreshTokens(refreshToken: string): Promise<AuthTokens>;
+  /** Revoke the user's refresh token. */
+  logout(userId: string): Promise<void>;
   getProfile(userId: string): Promise<UserProfile>;
 }

@@ -53,6 +53,10 @@ export function parseBody<T>(event: APIGatewayProxyEvent): T {
   if (!event.body) {
     throw new ValidationError('Request body is required');
   }
+  // serverless-offline may pass body as an already-parsed object
+  if (typeof event.body === 'object') {
+    return event.body as unknown as T;
+  }
   try {
     return JSON.parse(event.body) as T;
   } catch {

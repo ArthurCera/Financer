@@ -8,9 +8,18 @@
       <!-- Logo -->
       <div class="flex items-center gap-3 px-6 py-5 border-b border-slate-700/50">
         <div class="flex items-center justify-center w-9 h-9 rounded-lg bg-indigo-600 shrink-0">
-          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <svg
+            class="w-5 h-5 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
           </svg>
         </div>
         <span class="text-xl font-bold text-white tracking-tight">Financer</span>
@@ -30,7 +39,11 @@
           "
           @click="sidebarOpen = false"
         >
-          <span class="text-lg leading-none" v-html="item.icon" />
+          <!-- eslint-disable-next-line vue/no-v-html -- Icons are hardcoded SVG strings, not user input -->
+          <span
+            class="text-lg leading-none"
+            v-html="item.icon"
+          ></span>
           {{ item.label }}
         </RouterLink>
       </nav>
@@ -42,17 +55,30 @@
             {{ userInitial }}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm font-medium text-white truncate">{{ auth.user?.name ?? 'User' }}</p>
-            <p class="text-xs text-slate-400 truncate">{{ auth.user?.email ?? '' }}</p>
+            <p class="text-sm font-medium text-white truncate">
+              {{ auth.user?.name ?? 'User' }}
+            </p>
+            <p class="text-xs text-slate-400 truncate">
+              {{ auth.user?.email ?? '' }}
+            </p>
           </div>
         </div>
         <button
           class="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors duration-150"
           @click="handleLogout"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
           </svg>
           Sign out
         </button>
@@ -64,7 +90,7 @@
       v-if="sidebarOpen"
       class="fixed inset-0 z-40 bg-black/50 md:hidden"
       @click="sidebarOpen = false"
-    />
+    ></div>
 
     <!-- Main content -->
     <div class="flex-1 flex flex-col md:ml-64 min-w-0">
@@ -75,18 +101,35 @@
           class="md:hidden p-1.5 rounded-lg text-slate-600 hover:bg-slate-100"
           @click="sidebarOpen = !sidebarOpen"
         >
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"
+            />
           </svg>
         </button>
 
         <div class="flex-1">
-          <h2 class="text-lg font-semibold text-slate-900">{{ pageTitle }}</h2>
-          <p class="text-xs text-slate-500">{{ currentDate }}</p>
+          <h2 class="text-lg font-semibold text-slate-900">
+            {{ pageTitle }}
+          </h2>
+          <p class="text-xs text-slate-500">
+            {{ currentDate }}
+          </p>
         </div>
 
         <!-- Admin/Client toggle -->
-        <div v-if="isAdmin" class="flex items-center bg-slate-100 rounded-lg p-0.5">
+        <div
+          v-if="isAdmin"
+          class="flex items-center bg-slate-100 rounded-lg p-0.5"
+        >
           <button
             class="px-3 py-1.5 text-xs font-medium rounded-md transition-colors"
             :class="viewMode === 'client'
@@ -110,7 +153,7 @@
 
       <!-- Page content -->
       <main class="flex-1 overflow-y-auto p-6">
-        <slot />
+        <slot></slot>
       </main>
     </div>
 
@@ -155,6 +198,11 @@ const clientNavItems = [
     label: 'Income',
     icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
   },
+  {
+    to: '/categories',
+    label: 'Categories',
+    icon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>',
+  },
 ]
 
 const adminNavItems = [
@@ -174,6 +222,7 @@ const pageTitles: Record<string, string> = {
   '/expenses': 'Expenses',
   '/budgets': 'Budgets',
   '/income': 'Income',
+  '/categories': 'Categories',
   '/admin': 'Admin Dashboard',
 }
 
@@ -211,7 +260,7 @@ function isActive(path: string): boolean {
 }
 
 async function handleLogout(): Promise<void> {
-  auth.logout()
+  await auth.logout()
   await router.push('/login')
 }
 </script>

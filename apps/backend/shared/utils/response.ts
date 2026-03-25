@@ -41,3 +41,13 @@ export function conflict(message: string): APIGatewayProxyResult {
 export function serverError(message = 'Internal server error'): APIGatewayProxyResult {
   return json(500, { success: false, error: { code: 'INTERNAL_ERROR', message } });
 }
+
+export function okPaginated<T>(data: T[], total: number, limit: number, offset: number): APIGatewayProxyResult {
+  const page = Math.floor(offset / limit) + 1;
+  const totalPages = Math.ceil(total / limit);
+  return json(200, {
+    success: true,
+    data,
+    pagination: { total, page, pageSize: limit, totalPages },
+  });
+}

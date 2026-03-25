@@ -1,11 +1,16 @@
 import { injectable, inject } from 'tsyringe';
-import { IVectorRepository, VectorSearchResult, sql } from '@financer/backend-shared';
+import { IVectorRepository, VectorSearchResult, sql, type DrizzleDB } from '@financer/backend-shared';
 
 @injectable()
 export class PgVectorRepository implements IVectorRepository {
-  constructor(@inject('db') private readonly db: any) {}
+  constructor(@inject('db') private readonly db: DrizzleDB) {}
 
   async upsert(id: string, embedding: number[], metadata: Record<string, unknown>): Promise<void> {
+    if (embedding.length === 0) {
+      console.warn(`[PgVector] Skipping upsert for ${id}: empty embedding vector`);
+      return;
+    }
+
     const vectorStr = `[${embedding.join(',')}]`;
     const userId = metadata['userId'] as string;
     const role = metadata['role'] as string;
@@ -26,10 +31,10 @@ export class PgVectorRepository implements IVectorRepository {
     const vectorStr = `[${embedding.join(',')}]`;
     const userId = filter?.['userId'] as string | undefined;
 
-    let rows: { id: string; score: number; metadata: string }[];
+    let result: { rows: { id: string; score: number; content: string; role: string }[] };
 
     if (userId) {
-      rows = await this.db.execute(
+      result = await this.db.execute(
         sql`SELECT
               id,
               content,
@@ -39,9 +44,9 @@ export class PgVectorRepository implements IVectorRepository {
             WHERE user_id = ${userId} AND embedding IS NOT NULL
             ORDER BY embedding <=> ${vectorStr}::vector
             LIMIT ${topK}`,
-      );
+      ) as any;
     } else {
-      rows = await this.db.execute(
+      result = await this.db.execute(
         sql`SELECT
               id,
               content,
@@ -51,9 +56,10 @@ export class PgVectorRepository implements IVectorRepository {
             WHERE embedding IS NOT NULL
             ORDER BY embedding <=> ${vectorStr}::vector
             LIMIT ${topK}`,
-      );
+      ) as any;
     }
 
+    const rows = result.rows ?? result;
     return (rows as any[]).map((row) => ({
       id: row.id as string,
       score: parseFloat(String(row.score)),

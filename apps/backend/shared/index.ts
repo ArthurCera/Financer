@@ -1,10 +1,12 @@
-export * from './abstracts';
+export * from './abstracts/index';
 export * from './db/drizzle';
 export * from './db/postgres.client';
 export * from './db/redis.client';
-export * from './db/schema';
-export * from './interfaces';
+export * from './db/schema/index';
+export * from './interfaces/index';
 export * from './middleware/auth.middleware';
+export * from './repositories/CategoryRepository';
+export { ExpenseRepository as SharedExpenseRepository } from './repositories/ExpenseRepository';
 export * from './services/RedisService';
-export * from './types';
-export * from './utils';
+export * from './types/index';
+export * from './utils/index';

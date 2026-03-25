@@ -14,6 +14,7 @@ provider:
     POSTGRES_USER: ${env:POSTGRES_USER, 'financer'}
     POSTGRES_PASSWORD: ${env:POSTGRES_PASSWORD, 'financer_local'}
     JWT_SECRET: ${env:JWT_SECRET, 'dev_secret'}
+    JWT_REFRESH_SECRET: ${env:JWT_REFRESH_SECRET, 'dev_refresh_secret'}
     JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '15m'}
     JWT_REFRESH_EXPIRES_IN: ${env:JWT_REFRESH_EXPIRES_IN, '7d'}
     REDIS_HOST: ${env:REDIS_HOST, 'localhost'}
@@ -26,6 +27,7 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3001
+    lambdaPort: 4001
     noPrependStageInUrl: true
 
 functions:
@@ -35,6 +37,7 @@ functions:
       - http:
           method: GET
           path: /health
+          cors: true
 
   register:
     handler: src/handlers/handler.register
@@ -42,6 +45,7 @@ functions:
       - http:
           method: POST
           path: /auth/register
+          cors: true
 
   login:
     handler: src/handlers/handler.login
@@ -49,6 +53,7 @@ functions:
       - http:
           method: POST
           path: /auth/login
+          cors: true
 
   refresh:
     handler: src/handlers/handler.refresh
@@ -56,6 +61,7 @@ functions:
       - http:
           method: POST
           path: /auth/refresh
+          cors: true
 
   me:
     handler: src/handlers/handler.me
@@ -63,3 +69,12 @@ functions:
       - http:
           method: GET
           path: /auth/me
+          cors: true
+
+  logout:
+    handler: src/handlers/handler.logout
+    events:
+      - http:
+          method: POST
+          path: /auth/logout
+          cors: true

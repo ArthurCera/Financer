@@ -57,7 +57,10 @@ echo -e "${YELLOW}[Migrate] Running migrations from ${MIGRATIONS_DIR}${NC}"
 for migration in $(ls "${MIGRATIONS_DIR}"/*.sql 2>/dev/null | grep -v '000_seed' | sort); do
   filename=$(basename "$migration")
   echo -e "${YELLOW}[Migrate] Applying: ${filename}${NC}"
-  run_sql "$migration"
+  if ! run_sql "$migration"; then
+    echo -e "${RED}[Migrate] FAILED: ${filename}${NC}"
+    exit 1
+  fi
   echo -e "${GREEN}[Migrate] Done: ${filename}${NC}"
 done
 

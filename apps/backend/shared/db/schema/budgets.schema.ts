@@ -10,6 +10,7 @@ export const budgets = pgTable('budgets', {
   month: integer('month').notNull(),
   year: integer('year').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 export type BudgetRow = typeof budgets.$inferSelect;

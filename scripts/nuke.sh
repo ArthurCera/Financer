@@ -108,24 +108,14 @@ fi
 # ---------------------------------------------------------------------------
 step "Removing node_modules directories"
 
-NODE_MODULES_DIRS=$(find . \
-  -name 'node_modules' \
-  -type d \
-  -not -path '*/.git/*' \
-  -prune \
-  -print 2>/dev/null)
+NODE_MODULES_DIRS=$(find . -name 'node_modules' -type d -not -path '*/.git/*' 2>/dev/null)
 
 if [ -n "$NODE_MODULES_DIRS" ]; then
   COUNT=$(echo "$NODE_MODULES_DIRS" | wc -l | tr -d ' ')
   echo "  Found ${COUNT} node_modules director$([ "$COUNT" -eq 1 ] && echo 'y' || echo 'ies'):"
   echo "$NODE_MODULES_DIRS" | sed 's/^/    /'
   echo ""
-  find . \
-    -name 'node_modules' \
-    -type d \
-    -not -path '*/.git/*' \
-    -prune \
-    -exec rm -rf {} + 2>/dev/null || true
+  echo "$NODE_MODULES_DIRS" | xargs rm -rf 2>/dev/null || true
   ok "node_modules removed"
 else
   skip "No node_modules found"
@@ -136,22 +126,10 @@ fi
 # ---------------------------------------------------------------------------
 step "Removing dist/ build directories"
 
-DIST_DIRS=$(find . \
-  -name 'dist' \
-  -type d \
-  -not -path '*/.git/*' \
-  -not -path '*/node_modules/*' \
-  -prune \
-  -print 2>/dev/null)
+DIST_DIRS=$(find . -name 'dist' -type d -not -path '*/.git/*' -not -path '*/node_modules/*' 2>/dev/null)
 
 if [ -n "$DIST_DIRS" ]; then
-  find . \
-    -name 'dist' \
-    -type d \
-    -not -path '*/.git/*' \
-    -not -path '*/node_modules/*' \
-    -prune \
-    -exec rm -rf {} + 2>/dev/null || true
+  echo "$DIST_DIRS" | xargs rm -rf 2>/dev/null || true
   ok "dist/ directories removed"
 else
   skip "No dist/ directories found"

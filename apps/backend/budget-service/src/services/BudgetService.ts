@@ -2,10 +2,13 @@ import { injectable, inject } from 'tsyringe';
 import {
   IBudgetRepository,
   ICategoryRepository,
+  ICacheService,
   BudgetDto,
   CategoryDto,
   AppError,
   NotFoundError,
+  findOwnedOrThrow,
+  invalidateDashboardCache,
 } from '@financer/backend-shared';
 import { CreateBudgetRequest, UpdateBudgetRequest, BudgetResponse } from '@financer/shared';
 
@@ -14,22 +17,35 @@ export class BudgetService {
   constructor(
     @inject('IBudgetRepository') private readonly budgetRepo: IBudgetRepository,
     @inject('ICategoryRepository') private readonly categoryRepo: ICategoryRepository,
+    @inject('ICacheService') private readonly cache: ICacheService,
   ) {}
 
-  async list(userId: string, month: number, year: number): Promise<BudgetResponse[]> {
-    const budgetList = await this.budgetRepo.findByUserAndPeriod(userId, month, year);
+  async list(
+    userId: string,
+    month: number,
+    year: number,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ items: BudgetResponse[]; total: number }> {
+    const [budgetList, total] = await Promise.all([
+      this.budgetRepo.findByUserAndPeriodPaginated(userId, month, year, limit, offset),
+      this.budgetRepo.countByUserAndPeriod(userId, month, year),
+    ]);
 
+    // Batch-fetch all categories in a single query
     const categoryIds = [...new Set(budgetList.map((b) => b.categoryId).filter(Boolean))] as string[];
+    const categoryList = await this.categoryRepo.findByIds(categoryIds);
     const categoryMap = new Map<string, CategoryDto>();
-    for (const categoryId of categoryIds) {
-      const category = await this.categoryRepo.findById(categoryId);
-      if (category) categoryMap.set(categoryId, category);
+    for (const cat of categoryList) {
+      categoryMap.set(cat.id, cat);
     }
 
-    return budgetList.map((budget) => {
+    const items = budgetList.map((budget) => {
       const category = budget.categoryId ? categoryMap.get(budget.categoryId) ?? null : null;
       return this.toResponse(budget, category?.name ?? null);
     });
+
+    return { items, total };
   }
 
   async create(userId: string, data: CreateBudgetRequest): Promise<BudgetResponse> {
@@ -58,6 +74,7 @@ export class BudgetService {
       categoryName = category?.name ?? null;
     }
 
+    await invalidateDashboardCache(this.cache, userId);
     return this.toResponse(budget, categoryName);
   }
 
@@ -66,10 +83,7 @@ export class BudgetService {
     id: string,
     data: UpdateBudgetRequest,
   ): Promise<BudgetResponse> {
-    const existing = await this.budgetRepo.findById(id);
-    if (!existing || existing.userId !== userId) {
-      throw new NotFoundError('Budget', id);
-    }
+    await findOwnedOrThrow(this.budgetRepo, id, userId, 'Budget');
 
     const partial: Partial<Omit<BudgetDto, 'id' | 'createdAt'>> = {};
     if (data.amount !== undefined) partial.amount = data.amount;
@@ -82,15 +96,14 @@ export class BudgetService {
       categoryName = category?.name ?? null;
     }
 
+    await invalidateDashboardCache(this.cache, userId);
     return this.toResponse(updated, categoryName);
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    const existing = await this.budgetRepo.findById(id);
-    if (!existing || existing.userId !== userId) {
-      throw new NotFoundError('Budget', id);
-    }
+    await findOwnedOrThrow(this.budgetRepo, id, userId, 'Budget');
     await this.budgetRepo.delete(id);
+    await invalidateDashboardCache(this.cache, userId);
   }
 
   toResponse(budget: BudgetDto, categoryName?: string | null): BudgetResponse {
@@ -103,6 +116,7 @@ export class BudgetService {
       month: budget.month,
       year: budget.year,
       createdAt: budget.createdAt.toISOString(),
+      updatedAt: budget.updatedAt.toISOString(),
     };
   }
 }

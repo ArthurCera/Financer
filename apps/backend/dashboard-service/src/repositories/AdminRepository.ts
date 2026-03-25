@@ -6,7 +6,9 @@ import {
   llmChats,
   count,
   sum,
+  eq,
   sql,
+  type DrizzleDB,
 } from '@financer/backend-shared';
 
 export interface AdminUserRow {
@@ -36,7 +38,7 @@ export interface LLMUsageRow {
 
 @injectable()
 export class AdminRepository {
-  constructor(@inject('db') private readonly db: any) {}
+  constructor(@inject('db') private readonly db: DrizzleDB) {}
 
   async getUsers(): Promise<AdminUserRow[]> {
     const rows = await this.db
@@ -100,5 +102,78 @@ export class AdminRepository {
     const totalMessages = usageRows.reduce((s, r) => s + r.chatMessageCount, 0);
 
     return { users: usageRows, totalMessages };
+  }
+
+  async getDetailedLLMStats(): Promise<{
+    totalChats: number;
+    totalMessages: number;
+    avgMessagesPerUser: number;
+    activeUsersLast7Days: number;
+    messagesLast7Days: number;
+    messagesLast30Days: number;
+    topUsers: Array<{ userId: string; name: string; email: string; messageCount: number }>;
+  }> {
+    const [
+      [totalMsgRow],
+      [distinctChatUsersRow],
+      [active7Row],
+      [msg7Row],
+      [msg30Row],
+      topUserRows,
+    ] = await Promise.all([
+      this.db
+        .select({ total: count() })
+        .from(llmChats),
+      this.db
+        .select({ total: sql<number>`COUNT(DISTINCT user_id)` })
+        .from(llmChats),
+      this.db
+        .select({ total: sql<number>`COUNT(DISTINCT user_id)` })
+        .from(llmChats)
+        .where(sql`${llmChats.createdAt} >= NOW() - INTERVAL '7 days'`),
+      this.db
+        .select({ total: count() })
+        .from(llmChats)
+        .where(sql`${llmChats.createdAt} >= NOW() - INTERVAL '7 days'`),
+      this.db
+        .select({ total: count() })
+        .from(llmChats)
+        .where(sql`${llmChats.createdAt} >= NOW() - INTERVAL '30 days'`),
+      this.db
+        .select({
+          userId: users.id,
+          name: users.name,
+          email: users.email,
+          messageCount: sql<number>`COUNT(${llmChats.id})`,
+        })
+        .from(llmChats)
+        .innerJoin(users, eq(llmChats.userId, users.id))
+        .groupBy(users.id, users.name, users.email)
+        .orderBy(sql`COUNT(${llmChats.id}) DESC`)
+        .limit(10),
+    ]);
+
+    const totalMessages = Number(totalMsgRow?.total ?? 0);
+    const totalChats = Number(distinctChatUsersRow?.total ?? 0);
+    const avgMessagesPerUser = totalChats > 0 ? Math.round((totalMessages / totalChats) * 100) / 100 : 0;
+
+    return {
+      totalChats,
+      totalMessages,
+      avgMessagesPerUser,
+      activeUsersLast7Days: Number(active7Row?.total ?? 0),
+      messagesLast7Days: Number(msg7Row?.total ?? 0),
+      messagesLast30Days: Number(msg30Row?.total ?? 0),
+      topUsers: topUserRows.map((r: any) => ({
+        userId: r.userId as string,
+        name: r.name as string,
+        email: r.email as string,
+        messageCount: Number(r.messageCount),
+      })),
+    };
+  }
+
+  async updateUserRole(userId: string, role: 'user' | 'admin'): Promise<void> {
+    await this.db.update(users).set({ role }).where(eq(users.id, userId));
   }
 }

@@ -24,30 +24,62 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3005
+    lambdaPort: 4005
     noPrependStageInUrl: true
 
 functions:
   health:
     handler: src/handlers/handler.health
     events:
-      - http: { method: GET, path: /health }
+      - http:
+          method: GET
+          path: /health
+          cors: true
 
   getDashboard:
     handler: src/handlers/handler.getDashboard
     events:
-      - http: { method: GET, path: /dashboard }
+      - http:
+          method: GET
+          path: /dashboard
+          cors: true
 
   getAdminUsers:
     handler: src/handlers/handler.getAdminUsers
     events:
-      - http: { method: GET, path: /admin/users }
+      - http:
+          method: GET
+          path: /admin/users
+          cors: true
 
   getAdminStats:
     handler: src/handlers/handler.getAdminStats
     events:
-      - http: { method: GET, path: /admin/stats }
+      - http:
+          method: GET
+          path: /admin/stats
+          cors: true
 
   getAdminLLMUsage:
     handler: src/handlers/handler.getAdminLLMUsage
     events:
-      - http: { method: GET, path: /admin/llm-usage }
+      - http:
+          method: GET
+          path: /admin/llm-usage
+          cors: true
+
+  getAdminLLMStats:
+    handler: src/handlers/handler.getAdminLLMStats
+    events:
+      - http:
+          method: GET
+          path: /admin/llm-stats
+          cors: true
+
+  updateUserRole:
+    handler: src/handlers/handler.updateUserRole
+    events:
+      - http:
+          method: PUT
+          path: /admin/users/{id}
+          cors: true

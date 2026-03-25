@@ -1,5 +1,8 @@
 <template>
-  <form @submit.prevent="handleSubmit" class="space-y-4">
+  <form
+    class="space-y-4"
+    @submit.prevent="handleSubmit"
+  >
     <AppInput
       v-model="form.amount"
       label="Amount"
@@ -33,10 +36,18 @@
     />
 
     <div class="flex gap-3 pt-2">
-      <AppButton type="submit" :loading="loading" class="flex-1">
+      <AppButton
+        type="submit"
+        :loading="loading"
+        class="flex-1"
+      >
         {{ initialData ? 'Update Income' : 'Add Income' }}
       </AppButton>
-      <AppButton variant="secondary" type="button" @click="$emit('cancel')">
+      <AppButton
+        variant="secondary"
+        type="button"
+        @click="$emit('cancel')"
+      >
         Cancel
       </AppButton>
     </div>
@@ -44,9 +55,10 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { watch } from 'vue'
 import AppInput from '../common/AppInput.vue'
 import AppButton from '../common/AppButton.vue'
+import { useForm } from '../../composables/useForm'
 import type { CreateIncomeRequest, IncomeResponse } from '@financer/shared'
 
 const props = withDefaults(
@@ -65,14 +77,22 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const form = reactive({
-  amount: props.initialData ? String(props.initialData.amount) : '',
-  date: props.initialData?.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-  source: props.initialData?.source ?? '',
-  description: props.initialData?.description ?? '',
-})
+function incomeValidator(data: Record<string, unknown>): Record<string, string> | null {
+  const errs: Record<string, string> = {}
+  if (!data.amount || Number(data.amount) <= 0) errs['amount'] = 'Amount must be greater than 0'
+  if (!data.date) errs['date'] = 'Date is required'
+  return Object.keys(errs).length > 0 ? errs : null
+}
 
-const errors = reactive<Record<string, string>>({})
+const { form, errors, validate } = useForm(
+  {
+    amount: props.initialData ? String(props.initialData.amount) : '',
+    date: props.initialData?.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    source: props.initialData?.source ?? '',
+    description: props.initialData?.description ?? '',
+  },
+  incomeValidator,
+)
 
 watch(
   () => props.initialData,
@@ -85,14 +105,6 @@ watch(
     }
   }
 )
-
-function validate(): boolean {
-  const newErrors: Record<string, string> = {}
-  if (!form.amount || Number(form.amount) <= 0) newErrors['amount'] = 'Amount must be greater than 0'
-  if (!form.date) newErrors['date'] = 'Date is required'
-  Object.assign(errors, newErrors)
-  return Object.keys(newErrors).length === 0
-}
 
 function handleSubmit(): void {
   if (!validate()) return

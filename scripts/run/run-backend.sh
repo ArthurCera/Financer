@@ -48,6 +48,32 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+# Check if Ollama is running (needed by llm-service)
+if command -v ollama &>/dev/null; then
+  if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
+    echo -e "${YELLOW}[Ollama] Not running — starting service...${NC}"
+    ollama serve &>/dev/null &
+    OLLAMA_PID=$!
+    MAX_WAIT=15
+    WAITED=0
+    until curl -sf http://localhost:11434/api/tags &>/dev/null; do
+      if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+        echo -e "${YELLOW}[Ollama] Could not start within ${MAX_WAIT}s — llm-service will have limited functionality.${NC}"
+        break
+      fi
+      sleep 1
+      WAITED=$((WAITED + 1))
+    done
+    if [ "$WAITED" -lt "$MAX_WAIT" ]; then
+      echo -e "${GREEN}[Ollama] Service is ready.${NC}"
+    fi
+  else
+    echo -e "${GREEN}[Ollama] Already running.${NC}"
+  fi
+else
+  echo -e "${YELLOW}[Ollama] Not installed — llm-service will have limited functionality. Run scripts/setup/06-setup-ollama.sh to install.${NC}"
+fi
+
 echo -e "${BOLD}Starting backend microservices...${NC}"
 
 for SERVICE in "${!SERVICE_PORTS[@]}"; do

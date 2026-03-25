@@ -29,6 +29,7 @@ export class OllamaOCRProvider implements IOCRProvider {
         stream: false,
         format: 'json',
       }),
+      signal: AbortSignal.timeout(120_000),
     });
 
     if (!response.ok) {

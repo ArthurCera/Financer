@@ -107,4 +107,75 @@ describe('Expense Service (port 3002)', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  // -------------------------------------------------------------------------
+  // Category CRUD
+  // -------------------------------------------------------------------------
+  let createdCategoryId: string;
+
+  it('GET /categories returns default categories', async () => {
+    const res = await request('expense', 'GET', '/categories', {
+      token: tokens.accessToken,
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    const cats = res.body.data as any[];
+    expect(cats.length).toBeGreaterThanOrEqual(1);
+    expect(cats[0]).toHaveProperty('id');
+    expect(cats[0]).toHaveProperty('name');
+    expect(cats[0]).toHaveProperty('color');
+  });
+
+  it('POST /categories creates a custom category', async () => {
+    const res = await request('expense', 'POST', '/categories', {
+      token: tokens.accessToken,
+      body: { name: 'Test Category', color: '#FF0000', icon: 'star' },
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data).toMatchObject({
+      name: 'Test Category',
+      color: '#FF0000',
+      icon: 'star',
+      isDefault: false,
+    });
+    createdCategoryId = (res.body.data as any).id;
+  });
+
+  it('PUT /categories/:id updates a custom category', async () => {
+    const res = await request('expense', 'PUT', `/categories/${createdCategoryId}`, {
+      token: tokens.accessToken,
+      body: { name: 'Updated Category', color: '#00FF00' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ name: 'Updated Category', color: '#00FF00' });
+  });
+
+  it('DELETE /categories/:id deletes a custom category', async () => {
+    const res = await request('expense', 'DELETE', `/categories/${createdCategoryId}`, {
+      token: tokens.accessToken,
+    });
+    expect(res.status).toBe(204);
+  });
+
+  it('POST /categories rejects without auth', async () => {
+    const res = await request('expense', 'POST', '/categories', {
+      body: { name: 'No auth' },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('DELETE /categories/:id rejects deleting default categories', async () => {
+    // Get a default category ID
+    const listRes = await request('expense', 'GET', '/categories', {
+      token: tokens.accessToken,
+    });
+    const defaultCat = (listRes.body.data as any[]).find((c: any) => c.isDefault);
+    if (!defaultCat) return; // skip if no defaults seeded
+    const res = await request('expense', 'DELETE', `/categories/${defaultCat.id}`, {
+      token: tokens.accessToken,
+    });
+    expect(res.status).toBe(403);
+  });
 });

@@ -15,14 +15,18 @@ export class DashboardService {
     const cached = await this.cache.get<DashboardResponse>(cacheKey);
     if (cached) return cached;
 
-    const [totalExpenses, totalIncome, totalBudget] = await Promise.all([
+    const [totalExpenses, totalIncome, totalBudget, recentExpenses, llmStats, allTimeNetSavings] = await Promise.all([
       this.repo.getTotalExpenses(userId, month, year),
       this.repo.getTotalIncome(userId, month, year),
       this.repo.getTotalBudget(userId, month, year),
+      this.repo.getRecentExpenses(userId, month, year),
+      this.repo.getUserLLMStats(userId),
+      this.repo.getAllTimeNetSavings(userId),
     ]);
 
     const expensesByCategoryRaw = await this.repo.getExpensesByCategory(userId, month, year);
-    const budgetVsActualRaw = await this.repo.getBudgetVsActual(userId, month, year);
+    // Pass pre-fetched expense data to avoid a redundant DB scan
+    const budgetVsActualRaw = await this.repo.getBudgetVsActual(userId, month, year, expensesByCategoryRaw);
 
     const expensesByCategory: CategoryBreakdownResponse[] = expensesByCategoryRaw.map((item) => ({
       categoryId: item.categoryId ?? 'uncategorized',
@@ -46,8 +50,15 @@ export class DashboardService {
       totalExpenses,
       totalIncome,
       totalBudget,
+      allTimeNetSavings,
       expensesByCategory,
       budgetVsActual,
+      recentExpenses,
+      llmStats: {
+        chatMessageCount: llmStats.chatMessageCount,
+        categorizationsCount: llmStats.categorizationsCount,
+        lastChatAt: llmStats.lastChatAt?.toISOString() ?? null,
+      },
     };
 
     await this.cache.set(cacheKey, result, 300);

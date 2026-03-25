@@ -1,7 +1,13 @@
 variable "name_prefix" { type = string }
 variable "lambda_arns" {
-  type = map(string)
-  description = "Map of service name to Lambda ARN (auth, expense, budget, income, dashboard)"
+  type        = map(string)
+  description = "Map of service name to Lambda ARN (auth, expense, budget, income, dashboard, llm)"
+}
+variable "cors_allowed_origins" {
+  type        = list(string)
+  description = "Explicit allowlist — avoid [\"*\"] in production"
+  # No permissive default; root module passes var.cors_allowed_origins
+  default = ["http://localhost:5173"]
 }
 
 resource "aws_apigatewayv2_api" "main" {
@@ -9,7 +15,7 @@ resource "aws_apigatewayv2_api" "main" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = ["*"]
+    allow_origins = var.cors_allowed_origins
     allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
@@ -22,7 +28,7 @@ resource "aws_apigatewayv2_stage" "default" {
   auto_deploy = true
 }
 
-# Create Lambda integrations and permissions for each service
+# Lambda integrations for each service
 resource "aws_apigatewayv2_integration" "services" {
   for_each = var.lambda_arns
 
@@ -42,7 +48,10 @@ resource "aws_lambda_permission" "apigw" {
   source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
 }
 
+# ---------------------------------------------------------------------------
 # Routes — proxied by service path prefix
+# ---------------------------------------------------------------------------
+
 resource "aws_apigatewayv2_route" "auth" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "ANY /auth/{proxy+}"
@@ -71,6 +80,29 @@ resource "aws_apigatewayv2_route" "dashboard" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "ANY /dashboard/{proxy+}"
   target    = "integrations/${aws_apigatewayv2_integration.services["dashboard"].id}"
+}
+
+# Admin routes go through dashboard-service
+resource "aws_apigatewayv2_route" "admin" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /admin/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.services["dashboard"].id}"
+}
+
+# LLM routes
+resource "aws_apigatewayv2_route" "llm" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /llm/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.services["llm"].id}"
+}
+
+# Health check routes (root-level GET /health per service)
+resource "aws_apigatewayv2_route" "health" {
+  for_each = var.lambda_arns
+
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /${each.key}/health"
+  target    = "integrations/${aws_apigatewayv2_integration.services[each.key].id}"
 }
 
 output "api_url" {

@@ -3,5 +3,6 @@ export function extractErrorMessage(err: unknown): string {
     const res = (err as { response?: { data?: { error?: { message?: string } } } }).response
     return res?.data?.error?.message ?? 'An unexpected error occurred'
   }
+  if (err instanceof Error) return err.message
   return 'An unexpected error occurred'
 }

@@ -1,4 +1,5 @@
 import { IRepository } from '../interfaces/IRepository';
+import type { DrizzleDB } from '../db/postgres.client';
 
 /**
  * BaseRepository<T, ID>
@@ -14,8 +15,7 @@ import { IRepository } from '../interfaces/IRepository';
  * (Dependency Inversion — no static imports of a concrete DB client here).
  */
 export abstract class BaseRepository<T, ID = string> implements IRepository<T, ID> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  constructor(protected readonly db: any) {}
+  constructor(protected readonly db: DrizzleDB) {}
 
   // ---------------------------------------------------------------------------
   // Abstract — service-specific table knowledge lives in subclasses
@@ -27,26 +27,4 @@ export abstract class BaseRepository<T, ID = string> implements IRepository<T, I
   abstract update(id: ID, partial: Partial<Omit<T, 'id' | 'createdAt'>>): Promise<T>;
   abstract delete(id: ID): Promise<void>;
 
-  // ---------------------------------------------------------------------------
-  // Shared helpers available to all subclasses
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Map a raw database row (snake_case) to a DTO (camelCase).
-   * Override in subclasses to add entity-specific mappings.
-   */
-  protected mapRow(row: Record<string, unknown>): T {
-    return this.snakeToCamel(row) as T;
-  }
-
-  private snakeToCamel(obj: Record<string, unknown>): Record<string, unknown> {
-    return Object.entries(obj).reduce(
-      (acc, [key, value]) => {
-        const camelKey = key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
-        acc[camelKey] = value;
-        return acc;
-      },
-      {} as Record<string, unknown>,
-    );
-  }
 }

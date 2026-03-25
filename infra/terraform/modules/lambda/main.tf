@@ -1,14 +1,38 @@
-variable "name_prefix"           { type = string }
-variable "function_name"         { type = string }
-variable "handler"               { type = string }
-variable "memory_size"           { type = number; default = 256 }
-variable "timeout"               { type = number; default = 30 }
-variable "subnet_ids"            { type = list(string) }
-variable "vpc_id"                { type = string }
-variable "environment_variables" { type = map(string); default = {} }
+variable "name_prefix" { type = string }
+variable "function_name" { type = string }
+variable "handler" { type = string }
+variable "memory_size" {
+  type    = number
+  default = 256
+}
+variable "timeout" {
+  type    = number
+  default = 30
+}
+variable "subnet_ids" { type = list(string) }
+variable "vpc_id" { type = string }
+variable "environment_variables" {
+  type    = map(string)
+  default = {}
+}
+variable "log_retention_days" {
+  type    = number
+  default = 14
+}
 
 locals {
   full_name = "${var.name_prefix}-${var.function_name}"
+}
+
+# Generate a minimal placeholder Lambda package
+data "archive_file" "placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/.placeholder-${var.function_name}.zip"
+
+  source {
+    content  = "exports.handler = async () => ({ statusCode: 501, body: JSON.stringify({ error: 'Not deployed' }) });"
+    filename = "index.js"
+  }
 }
 
 data "aws_iam_policy_document" "lambda_assume" {
@@ -45,7 +69,7 @@ resource "aws_security_group" "lambda" {
 
 resource "aws_cloudwatch_log_group" "lambda" {
   name              = "/aws/lambda/${local.full_name}"
-  retention_in_days = 14
+  retention_in_days = var.log_retention_days
 }
 
 resource "aws_lambda_function" "main" {
@@ -56,8 +80,8 @@ resource "aws_lambda_function" "main" {
   memory_size   = var.memory_size
   timeout       = var.timeout
 
-  # Placeholder — in real deployment, use S3 or container image
-  filename      = "${path.module}/placeholder.zip"
+  filename         = data.archive_file.placeholder.output_path
+  source_code_hash = data.archive_file.placeholder.output_base64sha256
 
   vpc_config {
     subnet_ids         = var.subnet_ids
@@ -73,5 +97,6 @@ resource "aws_lambda_function" "main" {
   tags = { Name = local.full_name }
 }
 
-output "function_arn"  { value = aws_lambda_function.main.arn }
+output "function_arn" { value = aws_lambda_function.main.arn }
 output "function_name" { value = aws_lambda_function.main.function_name }
+output "invoke_arn" { value = aws_lambda_function.main.invoke_arn }

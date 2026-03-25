@@ -26,6 +26,7 @@ export interface CategoryDto {
   color: string;
   icon: string;
   isDefault: boolean;
+  userId: string | null;
   createdAt: Date;
 }
 
@@ -48,6 +49,7 @@ export interface BudgetDto {
   month: number;
   year: number;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface IncomeDto {

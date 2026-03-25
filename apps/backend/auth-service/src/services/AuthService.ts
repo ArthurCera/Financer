@@ -32,7 +32,8 @@ export class AuthService implements IAuthService {
       throw new AppError('Email already registered', 409, 'CONFLICT');
     }
 
-    const passwordHash = await bcrypt.hash(password, 10);
+    const rounds = Math.max(10, Math.min(15, parseInt(process.env.BCRYPT_ROUNDS ?? '12', 10) || 12));
+    const passwordHash = await bcrypt.hash(password, rounds);
     const user = await this.userRepo.save({ email, passwordHash, name, role: 'user' });
     const tokens = await this.issueTokens(user.id, user.role);
 
@@ -65,7 +66,14 @@ export class AuthService implements IAuthService {
     const user = await this.userRepo.findById(payload.sub);
     if (!user) throw new UnauthorizedError('User not found');
 
+    // Revoke old refresh token before issuing new pair (rotate-on-use)
+    await this.cache.delete(`auth:refresh:${payload.sub}`);
+
     return this.issueTokens(user.id, user.role);
+  }
+
+  async logout(userId: string): Promise<void> {
+    await this.cache.delete(`auth:refresh:${userId}`);
   }
 
   async getProfile(userId: string): Promise<UserProfile> {

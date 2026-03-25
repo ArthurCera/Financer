@@ -5,18 +5,22 @@ import {
   ExpenseDto,
   expenses,
   ExpenseRow,
+  categories,
   eq,
   and,
   gte,
   lt,
   isNull,
   sum,
+  count,
+  desc,
   getMonthPeriodDates,
+  type DrizzleDB,
 } from '@financer/backend-shared';
 
 @injectable()
 export class ExpenseRepository extends BaseRepository<ExpenseDto> implements IExpenseRepository {
-  constructor(@inject('db') db: any) {
+  constructor(@inject('db') db: DrizzleDB) {
     super(db);
   }
 
@@ -105,7 +109,99 @@ export class ExpenseRepository extends BaseRepository<ExpenseDto> implements IEx
       .select({ total: sum(expenses.amount) })
       .from(expenses)
       .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)));
-    return parseFloat((row?.total as string) ?? '0');
+    return parseFloat(String(row?.total ?? 0));
+  }
+
+  async findUncategorizedByUserAndPeriod(userId: string, month: number, year: number): Promise<ExpenseDto[]> {
+    const { start, end } = getMonthPeriodDates(month, year);
+    const rows = await this.db
+      .select()
+      .from(expenses)
+      .where(
+        and(
+          eq(expenses.userId, userId),
+          isNull(expenses.categoryId),
+          gte(expenses.date, start),
+          lt(expenses.date, end),
+        ),
+      );
+    return (rows as ExpenseRow[]).map((row) => this.rowToDto(row));
+  }
+
+  async sumByCategoryAndPeriod(
+    userId: string,
+    month: number,
+    year: number,
+    queryLimit?: number,
+  ): Promise<Array<{ categoryName: string | null; total: number }>> {
+    const { start, end } = getMonthPeriodDates(month, year);
+
+    let query = this.db
+      .select({
+        categoryName: categories.name,
+        total: sum(expenses.amount),
+      })
+      .from(expenses)
+      .leftJoin(categories, eq(expenses.categoryId, categories.id))
+      .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)))
+      .groupBy(categories.name)
+      .$dynamic();
+
+    if (queryLimit !== undefined) {
+      query = query.limit(queryLimit);
+    }
+
+    const rows = await query;
+    return (rows as Array<{ categoryName: string | null; total: string | number | null }>).map((r) => ({
+      categoryName: r.categoryName ?? null,
+      total: parseFloat(String(r.total ?? 0)),
+    }));
+  }
+
+  async findByUserPaginated(userId: string, limit: number, offset: number): Promise<ExpenseDto[]> {
+    const rows = await this.db
+      .select()
+      .from(expenses)
+      .where(eq(expenses.userId, userId))
+      .orderBy(desc(expenses.date))
+      .limit(limit)
+      .offset(offset);
+    return (rows as ExpenseRow[]).map((row) => this.rowToDto(row));
+  }
+
+  async findByUserAndPeriodPaginated(
+    userId: string,
+    month: number,
+    year: number,
+    limit: number,
+    offset: number,
+  ): Promise<ExpenseDto[]> {
+    const { start, end } = getMonthPeriodDates(month, year);
+    const rows = await this.db
+      .select()
+      .from(expenses)
+      .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)))
+      .orderBy(desc(expenses.date))
+      .limit(limit)
+      .offset(offset);
+    return (rows as ExpenseRow[]).map((row) => this.rowToDto(row));
+  }
+
+  async countByUser(userId: string): Promise<number> {
+    const [row] = await this.db
+      .select({ count: count() })
+      .from(expenses)
+      .where(eq(expenses.userId, userId));
+    return Number(row?.count ?? 0);
+  }
+
+  async countByUserAndPeriod(userId: string, month: number, year: number): Promise<number> {
+    const { start, end } = getMonthPeriodDates(month, year);
+    const [row] = await this.db
+      .select({ count: count() })
+      .from(expenses)
+      .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)));
+    return Number(row?.count ?? 0);
   }
 
   private rowToDto(row: ExpenseRow): ExpenseDto {

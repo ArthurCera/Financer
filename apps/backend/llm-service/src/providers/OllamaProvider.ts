@@ -1,5 +1,14 @@
-import { injectable, inject } from 'tsyringe';
-import { BaseLLMProvider, ICacheService, LLMOptions } from '@financer/backend-shared';
+import { injectable } from 'tsyringe';
+import { BaseLLMProvider, LLMOptions } from '@financer/backend-shared';
+
+// Ollama can be slow on first inference (model loading) — set generous timeouts
+const COMPLETE_TIMEOUT_MS = 120_000; // 2 min for chat completions
+const EMBED_TIMEOUT_MS = 30_000;     // 30s for embeddings
+
+/** Strip <think>...</think> reasoning blocks produced by qwen3/qwen3.5 models */
+function stripThinkingBlocks(text: string): string {
+  return text.replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim();
+}
 
 @injectable()
 export class OllamaProvider extends BaseLLMProvider {
@@ -7,8 +16,8 @@ export class OllamaProvider extends BaseLLMProvider {
   private readonly chatModel: string;
   private readonly embedModel: string;
 
-  constructor(@inject('ICacheService') cache: ICacheService) {
-    super(cache);
+  constructor() {
+    super();
     this.baseUrl = process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
     this.chatModel = process.env.OLLAMA_CHAT_MODEL ?? 'qwen3.5:9b';
     this.embedModel = process.env.OLLAMA_EMBED_MODEL ?? 'bge-m3';
@@ -19,12 +28,16 @@ export class OllamaProvider extends BaseLLMProvider {
       model: this.chatModel,
       prompt,
       stream: false,
-      format: 'json',
       options: {
         temperature: options?.temperature ?? 0.7,
         ...(options?.maxTokens !== undefined && { num_predict: options.maxTokens }),
       },
     };
+
+    // Only force JSON format for low-temperature structured outputs (e.g., categorization)
+    if (options?.temperature !== undefined && options.temperature <= 0.2) {
+      body['format'] = 'json';
+    }
 
     if (options?.systemPrompt) {
       body['system'] = options.systemPrompt;
@@ -34,6 +47,7 @@ export class OllamaProvider extends BaseLLMProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(COMPLETE_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -42,7 +56,7 @@ export class OllamaProvider extends BaseLLMProvider {
     }
 
     const data = (await response.json()) as { response: string };
-    return data.response;
+    return stripThinkingBlocks(data.response);
   }
 
   protected async executeEmbed(text: string): Promise<number[]> {
@@ -50,6 +64,7 @@ export class OllamaProvider extends BaseLLMProvider {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ model: this.embedModel, prompt: text }),
+      signal: AbortSignal.timeout(EMBED_TIMEOUT_MS),
     });
 
     if (!response.ok) {
@@ -63,7 +78,9 @@ export class OllamaProvider extends BaseLLMProvider {
 
   async isAvailable(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/tags`);
+      const response = await fetch(`${this.baseUrl}/api/tags`, {
+        signal: AbortSignal.timeout(5000),
+      });
       return response.ok;
     } catch {
       return false;

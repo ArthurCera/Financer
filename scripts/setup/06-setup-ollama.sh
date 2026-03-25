@@ -37,7 +37,9 @@ if ! command -v zstd &>/dev/null; then
 fi
 
 if ! command -v ollama &>/dev/null; then
-  echo -e "${YELLOW}[Ollama] Not found. Installing...${NC}"
+  echo -e "${YELLOW}[Ollama] Not found. Installing via official installer...${NC}"
+  # NOTE: For production, download and verify the installer checksum before executing.
+  # See: https://ollama.com/download for checksums.
   curl -fsSL https://ollama.com/install.sh | sh
 else
   echo -e "${GREEN}[Ollama] Already installed: $(ollama --version)${NC}"
@@ -47,7 +49,19 @@ fi
 if ! pgrep -x ollama &>/dev/null; then
   echo -e "${YELLOW}[Ollama] Starting service...${NC}"
   ollama serve &>/dev/null &
-  sleep 3
+
+  # Wait for Ollama to be ready (up to 30 seconds)
+  MAX_WAIT=30
+  WAITED=0
+  until curl -sf http://localhost:11434/api/tags &>/dev/null; do
+    if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+      echo -e "${RED}[Ollama] Failed to start within ${MAX_WAIT}s. Check logs with: ollama serve${NC}"
+      exit 1
+    fi
+    sleep 2
+    WAITED=$((WAITED + 2))
+  done
+  echo -e "${GREEN}[Ollama] Service is ready.${NC}"
 fi
 
 echo -e "${YELLOW}[Ollama] Pulling models (this may take several minutes on first run)...${NC}"

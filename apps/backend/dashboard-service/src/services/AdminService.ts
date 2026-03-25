@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import type { AdminStatsResponse, AdminUserResponse, AdminLLMUsageResponse } from '@financer/shared';
+import type { AdminStatsResponse, AdminUserResponse, AdminLLMUsageResponse, DetailedLLMStatsResponse } from '@financer/shared';
 import { AdminRepository } from '../repositories/AdminRepository';
 
 @injectable()
@@ -44,5 +44,13 @@ export class AdminService {
       })),
       totalMessages,
     };
+  }
+
+  async getDetailedLLMStats(): Promise<DetailedLLMStatsResponse> {
+    return this.repo.getDetailedLLMStats();
+  }
+
+  async updateUserRole(userId: string, role: 'user' | 'admin'): Promise<void> {
+    await this.repo.updateUserRole(userId, role);
   }
 }

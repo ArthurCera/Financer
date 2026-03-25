@@ -1,9 +1,15 @@
-variable "name_prefix"        { type = string }
-variable "vpc_id"             { type = string }
+variable "name_prefix" { type = string }
+variable "vpc_id" { type = string }
 variable "private_subnet_ids" { type = list(string) }
-variable "username"           { type = string }
-variable "password"           { type = string; sensitive = true }
-variable "instance_type"      { type = string; default = "mq.t3.micro" }
+variable "username" { type = string }
+variable "password" {
+  type      = string
+  sensitive = true
+}
+variable "instance_type" {
+  type    = string
+  default = "mq.t3.micro"
+}
 
 resource "aws_security_group" "mq" {
   name   = "${var.name_prefix}-mq-sg"
@@ -18,15 +24,15 @@ resource "aws_security_group" "mq" {
 }
 
 resource "aws_mq_broker" "main" {
-  broker_name        = "${var.name_prefix}-rabbitmq"
-  engine_type        = "RabbitMQ"
-  engine_version     = "3.13"
-  host_instance_type = var.instance_type
-  deployment_mode    = "SINGLE_INSTANCE"
+  broker_name         = "${var.name_prefix}-rabbitmq"
+  engine_type         = "RabbitMQ"
+  engine_version      = "3.13"
+  host_instance_type  = var.instance_type
+  deployment_mode     = "SINGLE_INSTANCE"
   publicly_accessible = false
 
-  subnet_ids         = [var.private_subnet_ids[0]]
-  security_groups    = [aws_security_group.mq.id]
+  subnet_ids      = [var.private_subnet_ids[0]]
+  security_groups = [aws_security_group.mq.id]
 
   user {
     username = var.username

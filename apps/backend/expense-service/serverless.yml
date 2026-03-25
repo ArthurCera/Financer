@@ -24,23 +24,33 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3002
+    lambdaPort: 4002
     noPrependStageInUrl: true
 
 functions:
   health:
     handler: src/handlers/handler.health
     events:
-      - http: { method: GET, path: /health }
+      - http:
+          method: GET
+          path: /health
+          cors: true
 
   listExpenses:
     handler: src/handlers/handler.listExpenses
     events:
-      - http: { method: GET, path: /expenses }
+      - http:
+          method: GET
+          path: /expenses
+          cors: true
 
   createExpense:
     handler: src/handlers/handler.createExpense
     events:
-      - http: { method: POST, path: /expenses }
+      - http:
+          method: POST
+          path: /expenses
+          cors: true
 
   updateExpense:
     handler: src/handlers/handler.updateExpense
@@ -48,6 +58,7 @@ functions:
       - http:
           method: PUT
           path: /expenses/{id}
+          cors: true
 
   deleteExpense:
     handler: src/handlers/handler.deleteExpense
@@ -55,3 +66,36 @@ functions:
       - http:
           method: DELETE
           path: /expenses/{id}
+          cors: true
+
+  listCategories:
+    handler: src/handlers/handler.listCategories
+    events:
+      - http:
+          method: GET
+          path: /categories
+          cors: true
+
+  createCategory:
+    handler: src/handlers/handler.createCategory
+    events:
+      - http:
+          method: POST
+          path: /categories
+          cors: true
+
+  updateCategory:
+    handler: src/handlers/handler.updateCategory
+    events:
+      - http:
+          method: PUT
+          path: /categories/{id}
+          cors: true
+
+  deleteCategory:
+    handler: src/handlers/handler.deleteCategory
+    events:
+      - http:
+          method: DELETE
+          path: /categories/{id}
+          cors: true

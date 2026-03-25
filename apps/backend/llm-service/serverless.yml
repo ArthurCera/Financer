@@ -7,6 +7,7 @@ provider:
   runtime: nodejs20.x
   region: ${opt:region, 'us-east-1'}
   stage: ${opt:stage, 'local'}
+  timeout: 120
   environment:
     POSTGRES_HOST: ${env:POSTGRES_HOST, 'localhost'}
     POSTGRES_PORT: ${env:POSTGRES_PORT, '5432'}
@@ -30,35 +31,62 @@ plugins:
 custom:
   serverless-offline:
     httpPort: 3006
+    lambdaPort: 4006
     noPrependStageInUrl: true
 
 functions:
   health:
     handler: src/handlers/handler.health
     events:
-      - http: { method: GET, path: /health }
+      - http:
+          method: GET
+          path: /health
+          cors: true
 
   ocr:
     handler: src/handlers/handler.ocr
     events:
-      - http: { method: POST, path: /llm/ocr }
+      - http:
+          method: POST
+          path: /llm/ocr
+          cors: true
 
   categorize:
     handler: src/handlers/handler.categorize
     events:
-      - http: { method: POST, path: /llm/categorize }
+      - http:
+          method: POST
+          path: /llm/categorize
+          cors: true
 
   categorizeBatch:
     handler: src/handlers/handler.categorizeBatch
     events:
-      - http: { method: POST, path: /llm/categorize-batch }
+      - http:
+          method: POST
+          path: /llm/categorize-batch
+          cors: true
 
   chat:
     handler: src/handlers/handler.chat
     events:
-      - http: { method: POST, path: /llm/chat }
+      - http:
+          method: POST
+          path: /llm/chat
+          cors: true
+
+  chatJob:
+    handler: src/handlers/handler.chatJob
+    events:
+      - http:
+          method: GET
+          path: /llm/chat/job/{id}
+          cors: true
 
   chatHistory:
     handler: src/handlers/handler.chatHistory
     events:
-      - http: { method: GET, path: /llm/chat/history }
+      - http:
+          method: GET
+          path: /llm/chat/history
+          cors: true

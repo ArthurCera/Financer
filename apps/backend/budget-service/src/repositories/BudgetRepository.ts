@@ -8,11 +8,13 @@ import {
   eq,
   and,
   isNull,
+  count,
+  type DrizzleDB,
 } from '@financer/backend-shared';
 
 @injectable()
 export class BudgetRepository extends BaseRepository<BudgetDto> implements IBudgetRepository {
-  constructor(@inject('db') db: any) {
+  constructor(@inject('db') db: DrizzleDB) {
     super(db);
   }
 
@@ -52,7 +54,7 @@ export class BudgetRepository extends BaseRepository<BudgetDto> implements IBudg
     id: string,
     partial: Partial<Omit<BudgetDto, 'id' | 'createdAt'>>,
   ): Promise<BudgetDto> {
-    const setValues: Record<string, unknown> = {};
+    const setValues: Record<string, unknown> = { updatedAt: new Date() };
     if (partial.amount !== undefined) setValues['amount'] = String(partial.amount);
     if (partial.categoryId !== undefined) setValues['categoryId'] = partial.categoryId;
     if (partial.month !== undefined) setValues['month'] = partial.month;
@@ -96,6 +98,34 @@ export class BudgetRepository extends BaseRepository<BudgetDto> implements IBudg
     return this.rowToDto(rows[0] as BudgetRow);
   }
 
+  async findByUserAndPeriodPaginated(
+    userId: string,
+    month: number,
+    year: number,
+    limit: number,
+    offset: number,
+  ): Promise<BudgetDto[]> {
+    const rows = await this.db
+      .select()
+      .from(budgets)
+      .where(
+        and(eq(budgets.userId, userId), eq(budgets.month, month), eq(budgets.year, year)),
+      )
+      .limit(limit)
+      .offset(offset);
+    return (rows as BudgetRow[]).map((row) => this.rowToDto(row));
+  }
+
+  async countByUserAndPeriod(userId: string, month: number, year: number): Promise<number> {
+    const [row] = await this.db
+      .select({ count: count() })
+      .from(budgets)
+      .where(
+        and(eq(budgets.userId, userId), eq(budgets.month, month), eq(budgets.year, year)),
+      );
+    return Number(row?.count ?? 0);
+  }
+
   private rowToDto(row: BudgetRow): BudgetDto {
     return {
       id: row.id,
@@ -105,6 +135,7 @@ export class BudgetRepository extends BaseRepository<BudgetDto> implements IBudg
       month: row.month,
       year: row.year,
       createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
 }

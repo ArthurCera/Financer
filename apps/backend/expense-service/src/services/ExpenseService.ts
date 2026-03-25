@@ -2,9 +2,12 @@ import { injectable, inject } from 'tsyringe';
 import {
   IExpenseRepository,
   ICategoryRepository,
+  ICacheService,
   ExpenseDto,
   CategoryDto,
   NotFoundError,
+  findOwnedOrThrow,
+  invalidateDashboardCache,
 } from '@financer/backend-shared';
 import { CreateExpenseRequest, UpdateExpenseRequest, ExpenseResponse } from '@financer/shared';
 
@@ -13,34 +16,53 @@ export class ExpenseService {
   constructor(
     @inject('IExpenseRepository') private readonly expenseRepo: IExpenseRepository,
     @inject('ICategoryRepository') private readonly categoryRepo: ICategoryRepository,
+    @inject('ICacheService') private readonly cache: ICacheService,
   ) {}
 
-  async list(userId: string, month?: number, year?: number): Promise<ExpenseResponse[]> {
+  async list(
+    userId: string,
+    month?: number,
+    year?: number,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<{ items: ExpenseResponse[]; total: number }> {
     let expenseList: ExpenseDto[];
+    let total: number;
+
     if (month !== undefined && year !== undefined) {
-      expenseList = await this.expenseRepo.findByUserAndPeriod(userId, month, year);
+      [expenseList, total] = await Promise.all([
+        this.expenseRepo.findByUserAndPeriodPaginated(userId, month, year, limit, offset),
+        this.expenseRepo.countByUserAndPeriod(userId, month, year),
+      ]);
     } else {
-      expenseList = await this.expenseRepo.findAll({ userId });
+      [expenseList, total] = await Promise.all([
+        this.expenseRepo.findByUserPaginated(userId, limit, offset),
+        this.expenseRepo.countByUser(userId),
+      ]);
     }
 
-    // Build a map of categoryId -> category for efficient lookup
+    // Batch-fetch all categories in a single query
     const categoryIds = [...new Set(expenseList.map((e) => e.categoryId).filter(Boolean))] as string[];
+    const categoryList = await this.categoryRepo.findByIds(categoryIds);
     const categoryMap = new Map<string, CategoryDto>();
-    for (const categoryId of categoryIds) {
-      const category = await this.categoryRepo.findById(categoryId);
-      if (category) categoryMap.set(categoryId, category);
+    for (const cat of categoryList) {
+      categoryMap.set(cat.id, cat);
     }
 
-    return expenseList.map((expense) => {
+    const items = expenseList.map((expense) => {
       const category = expense.categoryId ? categoryMap.get(expense.categoryId) ?? null : null;
       return this.toResponse(expense, category?.name ?? null);
     });
+
+    return { items, total };
   }
 
   async create(userId: string, data: CreateExpenseRequest): Promise<ExpenseResponse> {
+    let categoryName: string | null = null;
     if (data.categoryId) {
       const category = await this.categoryRepo.findById(data.categoryId);
       if (!category) throw new NotFoundError('Category', data.categoryId);
+      categoryName = category.name;
     }
 
     const expense = await this.expenseRepo.save({
@@ -51,12 +73,7 @@ export class ExpenseService {
       date: new Date(data.date) as unknown as Date,
     });
 
-    let categoryName: string | null = null;
-    if (expense.categoryId) {
-      const category = await this.categoryRepo.findById(expense.categoryId);
-      categoryName = category?.name ?? null;
-    }
-
+    await invalidateDashboardCache(this.cache, userId);
     return this.toResponse(expense, categoryName);
   }
 
@@ -65,10 +82,7 @@ export class ExpenseService {
     id: string,
     data: UpdateExpenseRequest,
   ): Promise<ExpenseResponse> {
-    const existing = await this.expenseRepo.findById(id);
-    if (!existing || existing.userId !== userId) {
-      throw new NotFoundError('Expense', id);
-    }
+    await findOwnedOrThrow(this.expenseRepo, id, userId, 'Expense');
 
     if (data.categoryId) {
       const category = await this.categoryRepo.findById(data.categoryId);
@@ -89,15 +103,14 @@ export class ExpenseService {
       categoryName = category?.name ?? null;
     }
 
+    await invalidateDashboardCache(this.cache, userId);
     return this.toResponse(updated, categoryName);
   }
 
   async remove(userId: string, id: string): Promise<void> {
-    const existing = await this.expenseRepo.findById(id);
-    if (!existing || existing.userId !== userId) {
-      throw new NotFoundError('Expense', id);
-    }
+    await findOwnedOrThrow(this.expenseRepo, id, userId, 'Expense');
     await this.expenseRepo.delete(id);
+    await invalidateDashboardCache(this.cache, userId);
   }
 
   toResponse(expense: ExpenseDto, categoryName?: string | null): ExpenseResponse {

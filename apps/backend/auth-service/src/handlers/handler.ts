@@ -8,6 +8,7 @@ import {
   parseBody,
   ok,
   created,
+  noContent,
   authenticate,
 } from '@financer/backend-shared';
 import { RegisterSchema, LoginSchema, RefreshSchema } from '../validators/auth.validator';
@@ -51,3 +52,49 @@ export const me = withErrorHandler(
     return ok(user);
   },
 );
+
+export const logout = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const userId = authenticate(event);
+    await authService.logout(userId);
+    return noContent();
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Router — single entry point for API Gateway proxy integration
+// ---------------------------------------------------------------------------
+
+type RouteHandler = (event: APIGatewayProxyEvent) => Promise<APIGatewayProxyResult>;
+
+type Route = {
+  method: string;
+  pattern: RegExp;
+  handler: RouteHandler;
+};
+
+const routes: Route[] = [
+  { method: 'GET',  pattern: /^\/health$/,        handler: health as RouteHandler },
+  { method: 'POST', pattern: /^\/auth\/register$/, handler: register as RouteHandler },
+  { method: 'POST', pattern: /^\/auth\/login$/,    handler: login as RouteHandler },
+  { method: 'POST', pattern: /^\/auth\/refresh$/,  handler: refresh as RouteHandler },
+  { method: 'GET',  pattern: /^\/auth\/me$/,       handler: me as RouteHandler },
+  { method: 'POST', pattern: /^\/auth\/logout$/,   handler: logout as RouteHandler },
+];
+
+export const router = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  const method = event.requestContext?.httpMethod ?? event.httpMethod ?? '';
+  const path = (event as unknown as { rawPath?: string }).rawPath ?? event.path ?? '';
+
+  for (const route of routes) {
+    if (route.method === method.toUpperCase() && route.pattern.test(path)) {
+      return route.handler(event);
+    }
+  }
+
+  return {
+    statusCode: 404,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ error: 'Not Found', path, method }),
+  };
+};

@@ -1,15 +1,16 @@
 import { injectable, inject } from 'tsyringe';
-import { LLMChatDto, llmChats, LLMChatRow, eq, desc } from '@financer/backend-shared';
+import { ILLMChatRepository, LLMChatDto, llmChats, LLMChatRow, eq, desc, type DrizzleDB } from '@financer/backend-shared';
 
 @injectable()
-export class LLMChatRepository {
-  constructor(@inject('db') private readonly db: any) {}
+export class LLMChatRepository implements ILLMChatRepository {
+  constructor(@inject('db') private readonly db: DrizzleDB) {}
 
   async saveMessage(userId: string, role: 'user' | 'assistant', content: string): Promise<LLMChatDto> {
     const rows = await this.db
       .insert(llmChats)
       .values({ userId, role, content })
       .returning();
+    if (!rows[0]) throw new Error('Failed to save chat message — no row returned');
     return this.rowToDto(rows[0] as LLMChatRow);
   }
 

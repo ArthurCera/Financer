@@ -1,16 +1,28 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
     <div class="flex items-center justify-between mb-4">
-      <p class="text-sm font-medium text-slate-500">{{ title }}</p>
+      <p class="text-sm font-medium text-slate-500">
+        {{ title }}
+      </p>
       <div
-        class="w-10 h-10 rounded-lg flex items-center justify-center"
+        class="w-10 h-10 rounded-lg flex items-center justify-center text-white"
         :class="iconBgClass"
       >
-        <span v-html="icon" class="text-white" />
+        <slot name="icon"></slot>
       </div>
     </div>
-    <p class="text-2xl font-bold" :class="valueColorClass">{{ formattedValue }}</p>
-    <p v-if="subtitle" class="mt-1 text-xs text-slate-400">{{ subtitle }}</p>
+    <p
+      class="text-2xl font-bold"
+      :class="valueColorClass"
+    >
+      {{ formattedValue }}
+    </p>
+    <p
+      v-if="subtitle"
+      class="mt-1 text-xs text-slate-400"
+    >
+      {{ subtitle }}
+    </p>
   </div>
 </template>
 
@@ -23,7 +35,6 @@ const props = withDefaults(
     value: number
     subtitle?: string
     colorClass?: 'indigo' | 'emerald' | 'red' | 'amber'
-    icon?: string
   }>(),
   {
     colorClass: 'indigo',

@@ -8,21 +8,74 @@ aws_region  = "us-east-1"
 environment = "dev"
 project     = "financer"
 
+# ---------------------------------------------------------------------------
 # Database
+# ---------------------------------------------------------------------------
 db_name           = "financer"
 db_username       = "financer"
 db_password       = "CHANGE_ME_strong_password_here"
 db_instance_class = "db.t3.micro"
 db_multi_az       = false
 
+# Set true for production:
+# rds_skip_final_snapshot = false
+# rds_deletion_protection = true
+
+# Dev overrides (safe to destroy):
+rds_skip_final_snapshot = true
+rds_deletion_protection = false
+
+# ---------------------------------------------------------------------------
 # Redis
+# ---------------------------------------------------------------------------
 redis_node_type = "cache.t3.micro"
 
+# ---------------------------------------------------------------------------
 # RabbitMQ
+# ---------------------------------------------------------------------------
 rabbitmq_username      = "financer"
 rabbitmq_password      = "CHANGE_ME_strong_password_here"
 rabbitmq_instance_type = "mq.t3.micro"
 
+# ---------------------------------------------------------------------------
 # Lambda
+# ---------------------------------------------------------------------------
 lambda_memory_size = 256
 lambda_timeout     = 30
+log_retention_days = 30
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+jwt_secret             = "CHANGE_ME_use_openssl_rand_base64_32"
+jwt_refresh_secret     = "CHANGE_ME_different_from_jwt_secret_openssl_rand_base64_32"
+jwt_expires_in         = "15m"
+jwt_refresh_expires_in = "7d"
+
+# ---------------------------------------------------------------------------
+# LLM / Ollama
+# ---------------------------------------------------------------------------
+ollama_chat_model       = "qwen3.5:9b"
+ollama_ocr_model        = "glm-ocr"
+ollama_embed_model      = "bge-m3"
+ollama_embed_dimensions = "1024"
+
+# ECS Fargate sizing for Ollama (CPU-based inference):
+ollama_cpu    = 2048  # 2 vCPU
+ollama_memory = 8192  # 8 GB
+
+# LLM streaming server (lightweight Express SSE):
+llm_stream_cpu    = 512   # 0.5 vCPU
+llm_stream_memory = 1024  # 1 GB
+
+# ---------------------------------------------------------------------------
+# API Gateway
+# ---------------------------------------------------------------------------
+# Dev: SPA on Vite default port. Production: set to your CloudFront URL(s).
+cors_allowed_origins = ["http://localhost:5173"]
+# cors_allowed_origins = ["https://app.financer.example.com"]
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+# frontend_domain_name = "app.financer.example.com"

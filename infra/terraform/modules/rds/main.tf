@@ -1,11 +1,28 @@
-variable "name_prefix"        { type = string }
-variable "vpc_id"             { type = string }
+variable "name_prefix" { type = string }
+variable "vpc_id" { type = string }
 variable "private_subnet_ids" { type = list(string) }
-variable "db_name"            { type = string }
-variable "db_username"        { type = string }
-variable "db_password"        { type = string; sensitive = true }
-variable "instance_class"     { type = string; default = "db.t3.micro" }
-variable "multi_az"           { type = bool;   default = false }
+variable "db_name" { type = string }
+variable "db_username" { type = string }
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+variable "instance_class" {
+  type    = string
+  default = "db.t3.micro"
+}
+variable "multi_az" {
+  type    = bool
+  default = false
+}
+variable "skip_final_snapshot" {
+  type    = bool
+  default = false
+}
+variable "deletion_protection" {
+  type    = bool
+  default = true
+}
 
 resource "aws_db_subnet_group" "main" {
   name       = "${var.name_prefix}-db-subnet-group"
@@ -24,7 +41,9 @@ resource "aws_security_group" "rds" {
   }
 }
 
-# RDS parameter group with pgvector support
+# RDS parameter group — PostgreSQL 16
+# Note: pgvector is supported natively on RDS PostgreSQL 16.
+# Run "CREATE EXTENSION vector;" via migration after provisioning.
 resource "aws_db_parameter_group" "postgres" {
   name   = "${var.name_prefix}-pg16"
   family = "postgres16"
@@ -52,12 +71,16 @@ resource "aws_db_instance" "main" {
   vpc_security_group_ids = [aws_security_group.rds.id]
   parameter_group_name   = aws_db_parameter_group.postgres.name
 
+  publicly_accessible = false
   multi_az            = var.multi_az
-  skip_final_snapshot = true
-  deletion_protection = false
+  skip_final_snapshot = var.skip_final_snapshot
+  deletion_protection = var.deletion_protection
+
+  final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.name_prefix}-final-snapshot"
 
   tags = { Name = "${var.name_prefix}-postgres" }
 }
 
 output "endpoint" { value = aws_db_instance.main.endpoint }
-output "db_name"  { value = aws_db_instance.main.db_name }
+output "address" { value = aws_db_instance.main.address }
+output "db_name" { value = aws_db_instance.main.db_name }

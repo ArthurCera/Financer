@@ -4,6 +4,7 @@
     "rootDir": "../../..",
     "outDir": "dist",
     "declaration": true,
+    "typeRoots": ["./node_modules/@types", "../../../node_modules/@types"],
     "paths": {
       "@financer/shared": ["../../../packages/shared/src"]
     }
@@ -14,6 +15,7 @@
     "types/**/*",
     "db/**/*",
     "middleware/**/*",
+    "repositories/**/*",
     "services/**/*",
     "utils/**/*",
     "index.ts"

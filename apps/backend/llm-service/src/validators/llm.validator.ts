@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const OCRSchema = z.object({
-  imageBase64: z.string().min(1, 'Image data is required'),
+  imageBase64: z.string().min(1, 'Image data is required').max(14_000_000, 'Image data must be under 10MB'),
   mimeType: z.string().optional(),
 });
 

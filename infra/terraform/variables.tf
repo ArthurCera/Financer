@@ -54,6 +54,18 @@ variable "db_multi_az" {
   default     = false
 }
 
+variable "rds_skip_final_snapshot" {
+  description = "Skip final DB snapshot on deletion. Default false (safe for prod). Set true for dev/testing to allow clean teardown."
+  type        = bool
+  default     = false
+}
+
+variable "rds_deletion_protection" {
+  description = "Enable RDS deletion protection (set true for prod)"
+  type        = bool
+  default     = true
+}
+
 # ---------------------------------------------------------------------------
 # Redis
 # ---------------------------------------------------------------------------
@@ -100,4 +112,120 @@ variable "lambda_timeout" {
   description = "Default Lambda timeout in seconds"
   type        = number
   default     = 30
+}
+
+variable "log_retention_days" {
+  description = "CloudWatch log retention in days"
+  type        = number
+  default     = 30
+}
+
+# ---------------------------------------------------------------------------
+# Authentication (JWT)
+# ---------------------------------------------------------------------------
+
+variable "jwt_secret" {
+  description = "JWT signing secret for access tokens — used by all services"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_refresh_secret" {
+  description = "JWT signing secret for refresh tokens — MUST differ from jwt_secret"
+  type        = string
+  sensitive   = true
+}
+
+variable "jwt_expires_in" {
+  description = "Access token TTL (e.g. 15m, 1h)"
+  type        = string
+  default     = "15m"
+}
+
+variable "jwt_refresh_expires_in" {
+  description = "Refresh token TTL (e.g. 7d, 30d)"
+  type        = string
+  default     = "7d"
+}
+
+# ---------------------------------------------------------------------------
+# LLM / Ollama
+# ---------------------------------------------------------------------------
+
+variable "ollama_chat_model" {
+  description = "Ollama model for chat and expense categorization"
+  type        = string
+  default     = "qwen3.5:9b"
+}
+
+variable "ollama_ocr_model" {
+  description = "Ollama model for receipt/payslip OCR"
+  type        = string
+  default     = "glm-ocr"
+}
+
+variable "ollama_embed_model" {
+  description = "Ollama model for vector embeddings"
+  type        = string
+  default     = "bge-m3"
+}
+
+variable "ollama_embed_dimensions" {
+  description = "Embedding vector dimensions (must match model)"
+  type        = string
+  default     = "1024"
+}
+
+variable "ollama_cpu" {
+  description = "ECS Fargate CPU units for Ollama (1024 = 1 vCPU)"
+  type        = number
+  default     = 2048
+
+  validation {
+    condition     = contains([256, 512, 1024, 2048, 4096], var.ollama_cpu)
+    error_message = "ollama_cpu must be a valid Fargate CPU value: 256, 512, 1024, 2048, or 4096."
+  }
+}
+
+variable "ollama_memory" {
+  description = "ECS Fargate memory in MB for Ollama"
+  type        = number
+  default     = 8192
+
+  validation {
+    condition     = var.ollama_memory >= 512 && var.ollama_memory <= 30720
+    error_message = "ollama_memory must be between 512 and 30720 MB."
+  }
+}
+
+variable "llm_stream_cpu" {
+  description = "ECS Fargate CPU units for LLM streaming server"
+  type        = number
+  default     = 512
+}
+
+variable "llm_stream_memory" {
+  description = "ECS Fargate memory in MB for LLM streaming server"
+  type        = number
+  default     = 1024
+}
+
+# ---------------------------------------------------------------------------
+# API Gateway
+# ---------------------------------------------------------------------------
+
+variable "cors_allowed_origins" {
+  description = "Allowed CORS origins for API Gateway — MUST restrict in production (e.g. [\"https://financer.example.com\"]). Do NOT use [\"*\"] in prod."
+  type        = list(string)
+  default     = ["http://localhost:5173"]
+}
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+
+variable "frontend_domain_name" {
+  description = "Custom domain for CloudFront (optional, leave empty for default)"
+  type        = string
+  default     = ""
 }

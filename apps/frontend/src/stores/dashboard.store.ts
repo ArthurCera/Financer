@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { dashboardApi, unwrap } from '../services/api.service'
+import { extractErrorMessage } from '../utils/errors'
 import type { DashboardResponse } from '@financer/shared'
 
 export const useDashboardStore = defineStore('dashboard', () => {
@@ -18,7 +19,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         })
       )
     } catch (err) {
-      error.value = extractMessage(err)
+      error.value = extractErrorMessage(err)
     } finally {
       loading.value = false
     }
@@ -27,10 +28,3 @@ export const useDashboardStore = defineStore('dashboard', () => {
   return { dashboard, loading, error, fetchDashboard }
 })
 
-function extractMessage(err: unknown): string {
-  if (err && typeof err === 'object' && 'response' in err) {
-    const res = (err as { response?: { data?: { error?: { message?: string } } } }).response
-    return res?.data?.error?.message ?? 'An unexpected error occurred'
-  }
-  return 'An unexpected error occurred'
-}

@@ -1,13 +1,25 @@
 <template>
   <AuthLayout>
-    <h2 class="text-2xl font-bold text-slate-900 mb-1">Welcome back</h2>
-    <p class="text-sm text-slate-500 mb-6">Sign in to your account</p>
+    <h2 class="text-2xl font-bold text-slate-900 mb-1">
+      Welcome back
+    </h2>
+    <p class="text-sm text-slate-500 mb-6">
+      Sign in to your account
+    </p>
 
-    <div v-if="error" class="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3">
-      <p class="text-sm text-red-700">{{ error }}</p>
+    <div
+      v-if="error"
+      class="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3"
+    >
+      <p class="text-sm text-red-700">
+        {{ error }}
+      </p>
     </div>
 
-    <form @submit.prevent="handleLogin" class="space-y-4">
+    <form
+      class="space-y-4"
+      @submit.prevent="handleLogin"
+    >
       <AppInput
         v-model="form.email"
         label="Email address"
@@ -26,14 +38,22 @@
         :error="errors.password"
       />
 
-      <AppButton type="submit" size="lg" :loading="loading" class="w-full mt-2">
+      <AppButton
+        type="submit"
+        size="lg"
+        :loading="loading"
+        class="w-full mt-2"
+      >
         Sign in
       </AppButton>
     </form>
 
     <p class="mt-6 text-center text-sm text-slate-500">
       Don't have an account?
-      <RouterLink to="/register" class="font-medium text-indigo-600 hover:text-indigo-700">
+      <RouterLink
+        to="/register"
+        class="font-medium text-indigo-600 hover:text-indigo-700"
+      >
         Sign up
       </RouterLink>
     </p>
@@ -57,6 +77,9 @@ const loading = ref(false)
 const error = ref<string | null>(null)
 
 function validate(): boolean {
+  // Clear all stale errors before re-validating
+  for (const key of Object.keys(errors)) delete errors[key]
+
   const newErrors: Record<string, string> = {}
   if (!form.email) newErrors['email'] = 'Email is required'
   if (!form.password) newErrors['password'] = 'Password is required'

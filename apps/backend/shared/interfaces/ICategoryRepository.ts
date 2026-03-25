@@ -10,4 +10,6 @@ import { IRepository } from './IRepository';
 export interface ICategoryRepository extends IRepository<CategoryDto> {
   findByName(name: string): Promise<CategoryDto | null>;
   findDefaults(): Promise<CategoryDto[]>;
+  findByIds(ids: string[]): Promise<CategoryDto[]>;
+  findForUser(userId: string): Promise<CategoryDto[]>;
 }

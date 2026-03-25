@@ -25,4 +25,18 @@ export interface ICacheService {
    * default, so an explicit EXPIRE must follow when the return value is 1.
    */
   increment(key: string, ttlSeconds?: number): Promise<number>;
+
+  /**
+   * Sliding-window rate limiter backed by a sorted set.
+   *
+   * Atomically removes expired entries, adds the current request, counts
+   * remaining entries, and sets an expiry on the key. Returns the current
+   * request count within the window.
+   *
+   * @param key       Redis key (sorted set)
+   * @param windowMs  Sliding window size in milliseconds
+   * @param nowMs     Current timestamp in milliseconds (Date.now())
+   * @param uniqueId  A unique identifier for this request (e.g. UUID or timestamp + random)
+   */
+  slidingWindowCount(key: string, windowMs: number, nowMs: number, uniqueId: string): Promise<number>;
 }

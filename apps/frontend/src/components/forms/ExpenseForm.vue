@@ -1,5 +1,8 @@
 <template>
-  <form @submit.prevent="handleSubmit" class="space-y-4">
+  <form
+    class="space-y-4"
+    @submit.prevent="handleSubmit"
+  >
     <!-- OCR Upload -->
     <div class="w-full">
       <label class="block text-sm font-medium text-slate-700 mb-1">Scan Receipt (optional)</label>
@@ -8,9 +11,18 @@
           class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg cursor-pointer hover:bg-indigo-100 transition-colors"
           :class="{ 'opacity-50 pointer-events-none': ocrLoading }"
         >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <svg
+            class="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
           </svg>
           {{ ocrLoading ? 'Scanning...' : 'Upload Image' }}
           <input
@@ -20,8 +32,14 @@
             @change="handleImageUpload"
           />
         </label>
-        <span v-if="ocrLoading" class="text-xs text-slate-500">Extracting data from image...</span>
-        <span v-if="ocrSuccess" class="text-xs text-green-600">Fields pre-filled from receipt</span>
+        <span
+          v-if="ocrLoading"
+          class="text-xs text-slate-500"
+        >Extracting data from image...</span>
+        <span
+          v-if="ocrSuccess"
+          class="text-xs text-green-600"
+        >Fields pre-filled from receipt</span>
       </div>
     </div>
 
@@ -57,18 +75,32 @@
         v-model="form.categoryId"
         class="input-base"
       >
-        <option value="">No category</option>
-        <option v-for="cat in categories" :key="cat.id" :value="cat.id">
+        <option value="">
+          No category
+        </option>
+        <option
+          v-for="cat in categories"
+          :key="cat.id"
+          :value="cat.id"
+        >
           {{ cat.name }}
         </option>
       </select>
     </div>
 
     <div class="flex gap-3 pt-2">
-      <AppButton type="submit" :loading="loading" class="flex-1">
+      <AppButton
+        type="submit"
+        :loading="loading"
+        class="flex-1"
+      >
         {{ initialData ? 'Update Expense' : 'Add Expense' }}
       </AppButton>
-      <AppButton variant="secondary" type="button" @click="$emit('cancel')">
+      <AppButton
+        variant="secondary"
+        type="button"
+        @click="$emit('cancel')"
+      >
         Cancel
       </AppButton>
     </div>
@@ -76,9 +108,10 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 import AppInput from '../common/AppInput.vue'
 import AppButton from '../common/AppButton.vue'
+import { useForm } from '../../composables/useForm'
 import { useLLMStore } from '../../stores/llm.store'
 import type { CreateExpenseRequest, ExpenseResponse } from '@financer/shared'
 
@@ -109,14 +142,22 @@ const emit = defineEmits<{
   (e: 'cancel'): void
 }>()
 
-const form = reactive({
-  amount: props.initialData ? String(props.initialData.amount) : '',
-  date: props.initialData?.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
-  description: props.initialData?.description ?? '',
-  categoryId: props.initialData?.categoryId ?? '',
-})
+function expenseValidator(data: Record<string, unknown>): Record<string, string> | null {
+  const errs: Record<string, string> = {}
+  if (!data.amount || Number(data.amount) <= 0) errs['amount'] = 'Amount must be greater than 0'
+  if (!data.date) errs['date'] = 'Date is required'
+  return Object.keys(errs).length > 0 ? errs : null
+}
 
-const errors = reactive<Record<string, string>>({})
+const { form, errors, validate } = useForm(
+  {
+    amount: props.initialData ? String(props.initialData.amount) : '',
+    date: props.initialData?.date?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+    description: props.initialData?.description ?? '',
+    categoryId: props.initialData?.categoryId ?? '',
+  },
+  expenseValidator,
+)
 
 watch(
   () => props.initialData,
@@ -129,14 +170,6 @@ watch(
     }
   }
 )
-
-function validate(): boolean {
-  const newErrors: Record<string, string> = {}
-  if (!form.amount || Number(form.amount) <= 0) newErrors['amount'] = 'Amount must be greater than 0'
-  if (!form.date) newErrors['date'] = 'Date is required'
-  Object.assign(errors, newErrors)
-  return Object.keys(newErrors).length === 0
-}
 
 async function handleImageUpload(event: Event): Promise<void> {
   const target = event.target as HTMLInputElement
