@@ -1,7 +1,7 @@
 <template>
   <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
     <h3 class="text-base font-semibold text-slate-900 mb-4">
-      Expenses by Category
+      {{ title }}
     </h3>
 
     <div
@@ -68,7 +68,7 @@
             ></span>
             <span class="text-slate-600">{{ cat.categoryName }}</span>
           </div>
-          <span class="font-medium text-slate-800">{{ formatCurrency(cat.total) }}</span>
+          <span class="font-medium text-slate-800">{{ (valueFormatter ?? formatCurrency)(cat.total) }}</span>
         </li>
       </ul>
     </template>
@@ -87,9 +87,14 @@ onMounted(() => {
   requestAnimationFrame(() => { ready.value = true })
 })
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   categories: CategoryBreakdownResponse[]
-}>()
+  title?: string
+  valueFormatter?: (val: number) => string
+}>(), {
+  title: 'Expenses by Category',
+  valueFormatter: undefined,
+})
 
 const DEFAULT_COLORS = [
   '#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
@@ -141,7 +146,7 @@ const chartOptions = computed(() => ({
             fontWeight: 600,
             color: '#475569',
             formatter: () =>
-              formatCurrency(props.categories.reduce((sum, c) => sum + c.total, 0)),
+              (props.valueFormatter ?? formatCurrency)(props.categories.reduce((sum, c) => sum + c.total, 0)),
           },
         },
       },
@@ -149,7 +154,7 @@ const chartOptions = computed(() => ({
   },
   tooltip: {
     y: {
-      formatter: (val: number) => formatCurrency(val),
+      formatter: (val: number) => (props.valueFormatter ?? formatCurrency)(val),
     },
   },
   stroke: { width: 0 },

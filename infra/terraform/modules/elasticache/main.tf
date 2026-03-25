@@ -39,6 +39,11 @@ resource "aws_elasticache_replication_group" "main" {
 
   transit_encryption_enabled = true
   at_rest_encryption_enabled = true
+  auto_minor_version_upgrade = true
+  snapshot_retention_limit   = 1
+  snapshot_window            = "02:00-03:00"
+  maintenance_window         = "sun:03:30-sun:04:30"
+  apply_immediately          = true
 
   tags = { Name = "${var.name_prefix}-redis" }
 }

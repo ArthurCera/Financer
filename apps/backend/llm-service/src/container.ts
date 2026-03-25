@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { container } from 'tsyringe';
-import { db, RedisService, CategoryRepository, SharedExpenseRepository } from '@financer/backend-shared';
+import { db, RedisService, CategoryRepository, SharedExpenseRepository, UserReadRepository } from '@financer/backend-shared';
 import { OllamaProvider } from './providers/OllamaProvider';
 import { OllamaOCRProvider } from './providers/OllamaOCRProvider';
 import { PgVectorRepository } from './repositories/PgVectorRepository';
@@ -23,6 +23,7 @@ container.register('ICategoryRepository', { useClass: CategoryRepository });
 container.register('IExpenseRepository', { useClass: SharedExpenseRepository });
 container.register('IBudgetRepository', { useClass: BudgetReadRepository });
 container.register('IIncomeRepository', { useClass: IncomeReadRepository });
+container.register('IUserReadRepository', { useClass: UserReadRepository });
 container.register('IToolService', { useClass: FinancialToolService });
 container.register('ICategorizationService', { useClass: CategorizationService });
 container.register('IChatService', { useClass: ChatService });

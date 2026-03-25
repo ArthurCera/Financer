@@ -162,7 +162,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import AppLayout from '../layouts/AppLayout.vue'
 import AppButton from '../components/common/AppButton.vue'
 import AppTable, { type TableColumn } from '../components/common/AppTable.vue'
@@ -171,12 +171,19 @@ import BudgetForm from '../components/forms/BudgetForm.vue'
 import ErrorBanner from '../components/common/ErrorBanner.vue'
 import { useBudgetStore } from '../stores/budget.store'
 import { useCategoryStore } from '../stores/category.store'
+import { useSubAccountStore } from '../stores/subaccount.store'
 import type { BudgetResponse, CreateBudgetRequest } from '@financer/shared'
 import { formatCurrency } from '../utils/formatting'
 import { MONTHS } from '../utils/constants'
 
 const budgetStore = useBudgetStore()
 const categoryStore = useCategoryStore()
+const subAccountStore = useSubAccountStore()
+
+watch(() => subAccountStore.activeSubAccountId, () => {
+  loadBudgets()
+  categoryStore.fetchCategories()
+})
 
 const now = new Date()
 const selectedMonth = ref(now.getMonth() + 1)

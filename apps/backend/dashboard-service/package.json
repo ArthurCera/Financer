@@ -11,12 +11,14 @@
   "dependencies": {
     "@financer/backend-shared": "workspace:*",
     "@financer/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
     "reflect-metadata": "^0.2.2",
     "tsyringe": "^4.8.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.161",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.12.12",
     "serverless": "^3.38.0",
     "serverless-offline": "^13.6.0",

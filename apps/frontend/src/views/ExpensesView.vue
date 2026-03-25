@@ -225,7 +225,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import AppLayout from '../layouts/AppLayout.vue'
 import AppButton from '../components/common/AppButton.vue'
 import AppTable, { type TableColumn } from '../components/common/AppTable.vue'
@@ -237,12 +237,20 @@ import { useExpenseStore } from '../stores/expense.store'
 import { useLLMStore } from '../stores/llm.store'
 import { useCategoryStore } from '../stores/category.store'
 import type { ExpenseResponse, CreateExpenseRequest } from '@financer/shared'
+import { useSubAccountStore } from '../stores/subaccount.store'
 import { formatCurrency, formatDate } from '../utils/formatting'
 import { MONTHS } from '../utils/constants'
 
 const expenseStore = useExpenseStore()
 const llmStore = useLLMStore()
 const categoryStore = useCategoryStore()
+const subAccountStore = useSubAccountStore()
+
+// Refetch when admin switches sub-account
+watch(() => subAccountStore.activeSubAccountId, () => {
+  loadExpenses()
+  categoryStore.fetchCategories()
+})
 
 const now = new Date()
 const selectedMonth = ref(now.getMonth() + 1)

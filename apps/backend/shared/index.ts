@@ -7,6 +7,7 @@ export * from './interfaces/index';
 export * from './middleware/auth.middleware';
 export * from './repositories/CategoryRepository';
 export { ExpenseRepository as SharedExpenseRepository } from './repositories/ExpenseRepository';
+export { UserReadRepository } from './repositories/UserReadRepository';
 export * from './services/RedisService';
 export * from './types/index';
 export * from './utils/index';

@@ -83,3 +83,51 @@ functions:
           method: PUT
           path: /admin/users/{id}
           cors: true
+
+  getAdminPeriodTotals:
+    handler: src/handlers/handler.getAdminPeriodTotals
+    events:
+      - http:
+          method: GET
+          path: /admin/period-totals
+          cors: true
+
+  getAdminExpensesByCategory:
+    handler: src/handlers/handler.getAdminExpensesByCategory
+    events:
+      - http:
+          method: GET
+          path: /admin/expenses-by-category
+          cors: true
+
+  getAdminCategoryCounts:
+    handler: src/handlers/handler.getAdminCategoryCounts
+    events:
+      - http:
+          method: GET
+          path: /admin/category-counts
+          cors: true
+
+  getSubAccountDetail:
+    handler: src/handlers/handler.getSubAccountDetail
+    events:
+      - http:
+          method: GET
+          path: /admin/sub-accounts/{id}/detail
+          cors: true
+
+  getSubAccounts:
+    handler: src/handlers/handler.getSubAccounts
+    events:
+      - http:
+          method: GET
+          path: /admin/sub-accounts
+          cors: true
+
+  createSubAccount:
+    handler: src/handlers/handler.createSubAccount
+    events:
+      - http:
+          method: POST
+          path: /admin/sub-accounts
+          cors: true

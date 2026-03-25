@@ -10,4 +10,5 @@ import { UserDto } from '../types';
 export interface IUserRepository extends IRepository<UserDto> {
   findByEmail(email: string): Promise<UserDto | null>;
   existsByEmail(email: string): Promise<boolean>;
+  findByManagedBy(adminId: string): Promise<UserDto[]>;
 }

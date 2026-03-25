@@ -6,6 +6,8 @@
  * rely on the same shape for success and error responses.
  */
 
+import type { UserRole } from './enums';
+
 // ---------------------------------------------------------------------------
 // Response Envelopes
 // ---------------------------------------------------------------------------
@@ -68,7 +70,8 @@ export interface UserProfile {
   id: string;
   email: string;
   name: string;
-  role: 'user' | 'admin';
+  role: `${UserRole}`;
+  managedBy?: string | null;
   createdAt: string;
 }
 
@@ -200,6 +203,8 @@ export interface DashboardExpenseItem {
   amount: number;
   description: string | null;
   categoryName: string | null;
+  categoryColor: string | null;
+  categoryIcon: string | null;
   date: string;
 }
 
@@ -308,16 +313,33 @@ export interface AdminUserResponse {
   id: string;
   email: string;
   name: string;
-  role: 'user' | 'admin';
+  role: `${UserRole}`;
+  managedBy: string | null;
   createdAt: string;
   expenseCount: number;
   totalSpent: number;
+}
+
+export interface SubAccountResponse {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+  expenseCount: number;
+  totalSpent: number;
+}
+
+export interface CreateSubAccountRequest {
+  email: string;
+  password: string;
+  name: string;
 }
 
 export interface AdminStatsResponse {
   totalUsers: number;
   totalExpenses: number;
   totalIncome: number;
+  totalExpenseAmount: number;
   totalLLMChats: number;
   totalCategorizationsRun: number;
 }
@@ -346,4 +368,20 @@ export interface DetailedLLMStatsResponse {
     email: string;
     messageCount: number;
   }>;
+}
+
+// ---------------------------------------------------------------------------
+// Admin — Charts & Sub-Account Detail
+// ---------------------------------------------------------------------------
+
+export interface CategoryCountResponse {
+  categoryName: string;
+  color: string;
+  count: number;
+}
+
+export interface AdminSubAccountDetailResponse {
+  dashboard: DashboardResponse;
+  incomes: IncomeResponse[];
+  chatHistory: ChatMessage[];
 }

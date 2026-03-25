@@ -7,7 +7,8 @@ import {
   withErrorHandler,
   ok,
   authenticate,
-  authenticateAdmin,
+  authenticateFull,
+  authenticateWithRole,
   parseBody,
 } from '@financer/backend-shared';
 import { DashboardService } from '../services/DashboardService';
@@ -30,6 +31,11 @@ export const getDashboard = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
     const userId = authenticate(event);
     const qs = event.queryStringParameters ?? {};
+    // If 'all' param is truthy, skip month/year filtering
+    if (qs['all'] === 'true') {
+      const data = await dashboardService.getDashboard(userId);
+      return ok(data);
+    }
     const now = new Date();
     const period = PeriodSchema.parse({
       month: qs['month'] ?? now.getMonth() + 1,
@@ -46,23 +52,25 @@ export const getDashboard = withErrorHandler(
 
 export const getAdminUsers = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    authenticateAdmin(event);
-    const data = await adminService.getUsers();
+    const { sub: callerId, role } = authenticateFull(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
+    const data = await adminService.getUsers(role, callerId);
     return ok(data);
   },
 );
 
 export const getAdminStats = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    authenticateAdmin(event);
-    const data = await adminService.getStats();
+    const { sub: callerId, role } = authenticateFull(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
+    const data = await adminService.getStats(role, callerId);
     return ok(data);
   },
 );
 
 export const getAdminLLMUsage = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    authenticateAdmin(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
     const data = await adminService.getLLMUsage();
     return ok(data);
   },
@@ -70,7 +78,7 @@ export const getAdminLLMUsage = withErrorHandler(
 
 export const getAdminLLMStats = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    authenticateAdmin(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
     const data = await adminService.getDetailedLLMStats();
     return ok(data);
   },
@@ -78,13 +86,120 @@ export const getAdminLLMStats = withErrorHandler(
 
 export const updateUserRole = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    authenticateAdmin(event);
+    const { sub: callerId, role: callerRole } = authenticateFull(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
     const path = (event as unknown as { rawPath?: string }).rawPath ?? event.path ?? '';
     const idFromPath = path.split('/').pop() ?? '';
     const id = z.string().uuid().parse(event.pathParameters?.['id'] ?? idFromPath);
-    const { role } = z.object({ role: z.enum(['user', 'admin']) }).parse(parseBody(event));
-    await adminService.updateUserRole(id, role);
+    const { role } = z.object({ role: z.enum(['user', 'admin', 'superadmin']) }).parse(parseBody(event));
+    await adminService.updateUserRole(callerId, callerRole, id, role);
     return ok({ success: true });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Admin chart endpoints
+// ---------------------------------------------------------------------------
+
+export const getAdminExpensesByCategory = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const { sub: callerId, role } = authenticateFull(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
+    const qs = event.queryStringParameters ?? {};
+    let month: number | undefined;
+    let year: number | undefined;
+    if (qs['all'] !== 'true' && (qs['month'] || qs['year'])) {
+      const now = new Date();
+      const period = PeriodSchema.parse({ month: qs['month'] ?? now.getMonth() + 1, year: qs['year'] ?? now.getFullYear() });
+      month = period.month;
+      year = period.year;
+    }
+    const data = await adminService.getExpensesByCategory(role, callerId, month, year);
+    return ok(data);
+  },
+);
+
+export const getAdminCategoryCounts = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const { sub: callerId, role } = authenticateFull(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
+    const qs = event.queryStringParameters ?? {};
+    let month: number | undefined;
+    let year: number | undefined;
+    if (qs['all'] !== 'true' && (qs['month'] || qs['year'])) {
+      const now = new Date();
+      const period = PeriodSchema.parse({ month: qs['month'] ?? now.getMonth() + 1, year: qs['year'] ?? now.getFullYear() });
+      month = period.month;
+      year = period.year;
+    }
+    const data = await adminService.getCategoryCounts(role, callerId, month, year);
+    return ok(data);
+  },
+);
+
+export const getAdminPeriodTotals = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const { sub: callerId, role } = authenticateFull(event);
+    authenticateWithRole(event, 'admin', 'superadmin');
+    const qs = event.queryStringParameters ?? {};
+    let month: number | undefined;
+    let year: number | undefined;
+    if (qs['all'] !== 'true' && (qs['month'] || qs['year'])) {
+      const now = new Date();
+      const period = PeriodSchema.parse({ month: qs['month'] ?? now.getMonth() + 1, year: qs['year'] ?? now.getFullYear() });
+      month = period.month;
+      year = period.year;
+    }
+    const data = await adminService.getPeriodTotals(role, callerId, month, year);
+    return ok(data);
+  },
+);
+
+export const getSubAccountDetail = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const callerId = authenticateWithRole(event, 'admin');
+    const path = (event as unknown as { rawPath?: string }).rawPath ?? event.path ?? '';
+    const idMatch = /\/admin\/sub-accounts\/([0-9a-f-]{36})\/detail/.exec(path);
+    const id = z.string().uuid().parse(event.pathParameters?.['id'] ?? idMatch?.[1] ?? '');
+    const qs = event.queryStringParameters ?? {};
+    let month: number | undefined;
+    let year: number | undefined;
+    if (qs['all'] !== 'true') {
+      const now = new Date();
+      const period = PeriodSchema.parse({
+        month: qs['month'] ?? now.getMonth() + 1,
+        year: qs['year'] ?? now.getFullYear(),
+      });
+      month = period.month;
+      year = period.year;
+    }
+    const data = await adminService.getSubAccountDetail(callerId, id, month, year);
+    return ok(data);
+  },
+);
+
+// ---------------------------------------------------------------------------
+// Sub-account endpoints
+// ---------------------------------------------------------------------------
+
+export const getSubAccounts = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const callerId = authenticateWithRole(event, 'admin');
+    const data = await adminService.getSubAccounts(callerId);
+    return ok(data);
+  },
+);
+
+export const createSubAccount = withErrorHandler(
+  async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+    const callerId = authenticateWithRole(event, 'admin');
+    const body = z.object({
+      email: z.string().email(),
+      password: z.string().min(6),
+      name: z.string().min(1).max(255),
+    }).parse(parseBody(event));
+    const data = await adminService.createSubAccount(callerId, body.email, body.password, body.name);
+    return ok(data);
   },
 );
 
@@ -108,6 +223,12 @@ const routes: Route[] = [
   { method: 'GET',  pattern: /^\/admin\/llm-usage$/,            handler: getAdminLLMUsage as RouteHandler },
   { method: 'GET',  pattern: /^\/admin\/llm-stats$/,            handler: getAdminLLMStats as RouteHandler },
   { method: 'PUT',  pattern: /^\/admin\/users\/(?<id>[0-9a-f-]{36})$/, handler: updateUserRole as RouteHandler },
+  { method: 'GET',  pattern: /^\/admin\/expenses-by-category$/,  handler: getAdminExpensesByCategory as RouteHandler },
+  { method: 'GET',  pattern: /^\/admin\/period-totals$/,        handler: getAdminPeriodTotals as RouteHandler },
+  { method: 'GET',  pattern: /^\/admin\/category-counts$/,      handler: getAdminCategoryCounts as RouteHandler },
+  { method: 'GET',  pattern: /^\/admin\/sub-accounts\/(?<id>[0-9a-f-]{36})\/detail$/, handler: getSubAccountDetail as RouteHandler },
+  { method: 'GET',  pattern: /^\/admin\/sub-accounts$/,         handler: getSubAccounts as RouteHandler },
+  { method: 'POST', pattern: /^\/admin\/sub-accounts$/,         handler: createSubAccount as RouteHandler },
 ];
 
 export const router = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {

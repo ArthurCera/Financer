@@ -10,10 +10,13 @@ import {
   okPaginated,
   created,
   noContent,
-  authenticate,
+  authenticateFull,
+  resolveEffectiveUserId,
   ICategoryRepository,
   ForbiddenError,
   NotFoundError,
+  type IReadRepository,
+  type UserDto,
 } from '@financer/backend-shared';
 import { ExpenseService } from '../services/ExpenseService';
 import {
@@ -32,6 +35,7 @@ const PaginationSchema = z.object({
 
 const expenseService = container.resolve(ExpenseService);
 const categoryRepo = container.resolve<ICategoryRepository>('ICategoryRepository');
+const userRepo = container.resolve<IReadRepository<UserDto>>('IUserReadRepository');
 
 export const health = withErrorHandler(
   async (_e: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> =>
@@ -40,7 +44,8 @@ export const health = withErrorHandler(
 
 export const listExpenses = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const qs = event.queryStringParameters ?? {};
     let month: number | undefined;
     let year: number | undefined;
@@ -57,7 +62,8 @@ export const listExpenses = withErrorHandler(
 
 export const createExpense = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const body = CreateExpenseSchema.parse(parseBody(event));
     const expense = await expenseService.create(userId, body);
     return created(expense);
@@ -66,7 +72,8 @@ export const createExpense = withErrorHandler(
 
 export const updateExpense = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     const body = UpdateExpenseSchema.parse(parseBody(event));
     const expense = await expenseService.update(userId, id, body);
@@ -76,7 +83,8 @@ export const updateExpense = withErrorHandler(
 
 export const deleteExpense = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     await expenseService.remove(userId, id);
     return noContent();
@@ -89,7 +97,8 @@ export const deleteExpense = withErrorHandler(
 
 export const listCategories = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const categories = await categoryRepo.findForUser(userId);
     const data = categories.map((c) => ({
       id: c.id,
@@ -105,7 +114,8 @@ export const listCategories = withErrorHandler(
 
 export const createCategory = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const body = CreateCategorySchema.parse(parseBody(event));
     const category = await categoryRepo.save({
       name: body.name,
@@ -127,7 +137,8 @@ export const createCategory = withErrorHandler(
 
 export const updateCategory = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     const body = UpdateCategorySchema.parse(parseBody(event));
 
@@ -154,7 +165,8 @@ export const updateCategory = withErrorHandler(
 
 export const deleteCategory = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
 
     const existing = await categoryRepo.findById(id);

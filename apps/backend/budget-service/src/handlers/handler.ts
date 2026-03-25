@@ -10,7 +10,10 @@ import {
   okPaginated,
   created,
   noContent,
-  authenticate,
+  authenticateFull,
+  resolveEffectiveUserId,
+  type IReadRepository,
+  type UserDto,
 } from '@financer/backend-shared';
 import { BudgetService } from '../services/BudgetService';
 import {
@@ -26,6 +29,7 @@ const PaginationSchema = z.object({
 });
 
 const budgetService = container.resolve(BudgetService);
+const userRepo = container.resolve<IReadRepository<UserDto>>('IUserReadRepository');
 
 export const health = withErrorHandler(
   async (_e: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> =>
@@ -34,7 +38,8 @@ export const health = withErrorHandler(
 
 export const listBudgets = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const qs = event.queryStringParameters ?? {};
     const now = new Date();
     const period = PeriodSchema.parse({
@@ -49,7 +54,8 @@ export const listBudgets = withErrorHandler(
 
 export const createBudget = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const body = CreateBudgetSchema.parse(parseBody(event));
     const budget = await budgetService.create(userId, body);
     return created(budget);
@@ -58,7 +64,8 @@ export const createBudget = withErrorHandler(
 
 export const updateBudget = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     const body = UpdateBudgetSchema.parse(parseBody(event));
     const budget = await budgetService.update(userId, id, body);
@@ -68,7 +75,8 @@ export const updateBudget = withErrorHandler(
 
 export const deleteBudget = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     await budgetService.remove(userId, id);
     return noContent();

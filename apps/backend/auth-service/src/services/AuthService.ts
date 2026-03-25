@@ -12,6 +12,7 @@ import {
   signRefreshToken,
   verifyRefreshToken,
   getTokenExpiresIn,
+  type UserRole,
 } from '@financer/backend-shared';
 import { AuthTokens, UserProfile } from '@financer/shared';
 
@@ -34,7 +35,7 @@ export class AuthService implements IAuthService {
 
     const rounds = Math.max(10, Math.min(15, parseInt(process.env.BCRYPT_ROUNDS ?? '12', 10) || 12));
     const passwordHash = await bcrypt.hash(password, rounds);
-    const user = await this.userRepo.save({ email, passwordHash, name, role: 'user' });
+    const user = await this.userRepo.save({ email, passwordHash, name, role: 'admin', managedBy: null });
     const tokens = await this.issueTokens(user.id, user.role);
 
     return { user: this.toProfile(user), tokens };
@@ -84,7 +85,7 @@ export class AuthService implements IAuthService {
     return this.toProfile(user);
   }
 
-  private async issueTokens(userId: string, role: 'user' | 'admin' = 'user'): Promise<AuthTokens> {
+  private async issueTokens(userId: string, role: UserRole = 'user'): Promise<AuthTokens> {
     const accessToken = signAccessToken(userId, role);
     const refreshToken = signRefreshToken(userId);
     const expiresIn = getTokenExpiresIn(accessToken);
@@ -100,6 +101,7 @@ export class AuthService implements IAuthService {
       email: user.email,
       name: user.name,
       role: user.role,
+      managedBy: user.managedBy,
       createdAt: user.createdAt.toISOString(),
     };
   }

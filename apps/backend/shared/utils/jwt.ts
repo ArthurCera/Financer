@@ -1,9 +1,10 @@
 import jwt, { type SignOptions } from 'jsonwebtoken';
 import { UnauthorizedError } from '../types';
+import type { UserRole } from '../types';
 
 export interface AccessTokenPayload {
   sub: string;
-  role: 'user' | 'admin';
+  role: UserRole;
   type: 'access';
 }
 
@@ -33,7 +34,7 @@ function getRefreshSecret(): string {
   return secret;
 }
 
-export function signAccessToken(userId: string, role: 'user' | 'admin' = 'user'): string {
+export function signAccessToken(userId: string, role: UserRole = 'admin'): string {
   const expiresIn = (process.env.JWT_EXPIRES_IN ?? '15m') as SignOptions['expiresIn'];
   return jwt.sign({ sub: userId, role, type: 'access' }, getAccessSecret(), {
     expiresIn,

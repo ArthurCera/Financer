@@ -188,7 +188,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import AppLayout from '../layouts/AppLayout.vue'
 import AppButton from '../components/common/AppButton.vue'
 import AppTable, { type TableColumn } from '../components/common/AppTable.vue'
@@ -196,11 +196,17 @@ import AppModal from '../components/common/AppModal.vue'
 import IncomeForm from '../components/forms/IncomeForm.vue'
 import ErrorBanner from '../components/common/ErrorBanner.vue'
 import { useIncomeStore } from '../stores/income.store'
+import { useSubAccountStore } from '../stores/subaccount.store'
 import type { IncomeResponse, CreateIncomeRequest } from '@financer/shared'
 import { formatCurrency, formatDate } from '../utils/formatting'
 import { MONTHS } from '../utils/constants'
 
 const incomeStore = useIncomeStore()
+const subAccountStore = useSubAccountStore()
+
+watch(() => subAccountStore.activeSubAccountId, () => {
+  loadIncomes()
+})
 
 const now = new Date()
 const selectedMonth = ref(now.getMonth() + 1)

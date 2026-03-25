@@ -225,7 +225,7 @@ variable "cors_allowed_origins" {
 # ---------------------------------------------------------------------------
 
 variable "frontend_domain_name" {
-  description = "Custom domain for CloudFront (optional, leave empty for default)"
+  description = "Custom domain for Amplify (optional, leave empty for default)"
   type        = string
   default     = ""
 }

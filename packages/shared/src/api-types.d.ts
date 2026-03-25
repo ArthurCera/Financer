@@ -5,6 +5,7 @@
  * Using a consistent envelope ensures the frontend can always
  * rely on the same shape for success and error responses.
  */
+import type { UserRole } from './enums';
 export interface ApiResponse<T> {
     success: true;
     data: T;
@@ -50,7 +51,8 @@ export interface UserProfile {
     id: string;
     email: string;
     name: string;
-    role: 'user' | 'admin';
+    role: `${UserRole}`;
+    managedBy?: string | null;
     createdAt: string;
 }
 export interface CategoryResponse {
@@ -152,6 +154,8 @@ export interface DashboardExpenseItem {
     amount: number;
     description: string | null;
     categoryName: string | null;
+    categoryColor: string | null;
+    categoryIcon: string | null;
     date: string;
 }
 export interface UserLLMStats {
@@ -229,15 +233,30 @@ export interface AdminUserResponse {
     id: string;
     email: string;
     name: string;
-    role: 'user' | 'admin';
+    role: `${UserRole}`;
+    managedBy: string | null;
     createdAt: string;
     expenseCount: number;
     totalSpent: number;
+}
+export interface SubAccountResponse {
+    id: string;
+    email: string;
+    name: string;
+    createdAt: string;
+    expenseCount: number;
+    totalSpent: number;
+}
+export interface CreateSubAccountRequest {
+    email: string;
+    password: string;
+    name: string;
 }
 export interface AdminStatsResponse {
     totalUsers: number;
     totalExpenses: number;
     totalIncome: number;
+    totalExpenseAmount: number;
     totalLLMChats: number;
     totalCategorizationsRun: number;
 }
@@ -264,5 +283,15 @@ export interface DetailedLLMStatsResponse {
         email: string;
         messageCount: number;
     }>;
+}
+export interface CategoryCountResponse {
+    categoryName: string;
+    color: string;
+    count: number;
+}
+export interface AdminSubAccountDetailResponse {
+    dashboard: DashboardResponse;
+    incomes: IncomeResponse[];
+    chatHistory: ChatMessage[];
 }
 //# sourceMappingURL=api-types.d.ts.map

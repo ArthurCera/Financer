@@ -23,6 +23,10 @@ variable "deletion_protection" {
   type    = bool
   default = true
 }
+variable "backup_retention_period" {
+  type    = number
+  default = 7
+}
 
 resource "aws_db_subnet_group" "main" {
   name       = "${var.name_prefix}-db-subnet-group"
@@ -30,14 +34,23 @@ resource "aws_db_subnet_group" "main" {
 }
 
 resource "aws_security_group" "rds" {
-  name   = "${var.name_prefix}-rds-sg"
-  vpc_id = var.vpc_id
+  name        = "${var.name_prefix}-rds-sg"
+  description = "Allow PostgreSQL access from within VPC"
+  vpc_id      = var.vpc_id
 
   ingress {
+    description = "PostgreSQL from VPC"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
     cidr_blocks = ["10.0.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -75,6 +88,17 @@ resource "aws_db_instance" "main" {
   multi_az            = var.multi_az
   skip_final_snapshot = var.skip_final_snapshot
   deletion_protection = var.deletion_protection
+
+  backup_retention_period = var.backup_retention_period
+  backup_window           = "03:00-04:00"
+  maintenance_window      = "sun:04:30-sun:05:30"
+
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
+
+  auto_minor_version_upgrade  = true
+  allow_major_version_upgrade = false
+  copy_tags_to_snapshot       = true
 
   final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.name_prefix}-final-snapshot"
 

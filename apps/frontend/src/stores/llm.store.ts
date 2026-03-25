@@ -231,6 +231,12 @@ export const useLLMStore = defineStore('llm', () => {
     }
   }
 
+  function resetForAccountSwitch(): void {
+    messages.value = []
+    historyLoaded.value = false
+    error.value = null
+  }
+
   return {
     messages,
     loading,
@@ -246,5 +252,6 @@ export const useLLMStore = defineStore('llm', () => {
     categorizeExpense,
     categorizeBatch,
     uploadReceipt,
+    resetForAccountSwitch,
   }
 })

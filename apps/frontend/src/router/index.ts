@@ -91,13 +91,19 @@ router.beforeEach(async (to) => {
   }
 
   // Admin-only routes
-  if (to.meta.requiresAdmin && auth.user?.role !== 'admin') {
+  if (to.meta.requiresAdmin && !['admin', 'superadmin'].includes(auth.user?.role ?? '')) {
     return { path: '/dashboard' }
+  }
+
+  // Redirect admin/superadmin to /admin when they land on /dashboard
+  if (auth.isAuthenticated && to.path === '/dashboard' && ['admin', 'superadmin'].includes(auth.user?.role ?? '')) {
+    return { path: '/admin' }
   }
 
   // If already authenticated, redirect away from auth pages
   if ((to.path === '/login' || to.path === '/register') && auth.isAuthenticated) {
-    return { path: '/dashboard' }
+    const role = auth.user?.role ?? ''
+    return { path: ['admin', 'superadmin'].includes(role) ? '/admin' : '/dashboard' }
   }
 })
 

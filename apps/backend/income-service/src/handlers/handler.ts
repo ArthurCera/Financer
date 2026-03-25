@@ -10,7 +10,10 @@ import {
   okPaginated,
   created,
   noContent,
-  authenticate,
+  authenticateFull,
+  resolveEffectiveUserId,
+  type IReadRepository,
+  type UserDto,
 } from '@financer/backend-shared';
 import { IncomeService } from '../services/IncomeService';
 import {
@@ -26,6 +29,7 @@ const PaginationSchema = z.object({
 });
 
 const incomeService = container.resolve(IncomeService);
+const userRepo = container.resolve<IReadRepository<UserDto>>('IUserReadRepository');
 
 export const health = withErrorHandler(
   async (_e: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> =>
@@ -34,7 +38,8 @@ export const health = withErrorHandler(
 
 export const listIncome = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const qs = event.queryStringParameters ?? {};
     let month: number | undefined;
     let year: number | undefined;
@@ -51,7 +56,8 @@ export const listIncome = withErrorHandler(
 
 export const createIncome = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const body = CreateIncomeSchema.parse(parseBody(event));
     const income = await incomeService.create(userId, body);
     return created(income);
@@ -60,7 +66,8 @@ export const createIncome = withErrorHandler(
 
 export const updateIncome = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     const body = UpdateIncomeSchema.parse(parseBody(event));
     const income = await incomeService.update(userId, id, body);
@@ -70,7 +77,8 @@ export const updateIncome = withErrorHandler(
 
 export const deleteIncome = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const id = IdParam.parse(event.pathParameters?.['id']);
     await incomeService.remove(userId, id);
     return noContent();

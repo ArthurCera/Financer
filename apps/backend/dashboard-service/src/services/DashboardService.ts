@@ -10,8 +10,8 @@ export class DashboardService {
     @inject('ICacheService') private readonly cache: ICacheService,
   ) {}
 
-  async getDashboard(userId: string, month: number, year: number): Promise<DashboardResponse> {
-    const cacheKey = `dashboard:${userId}:${year}:${month}`;
+  async getDashboard(userId: string, month?: number, year?: number): Promise<DashboardResponse> {
+    const cacheKey = `dashboard:${userId}:${year ?? 'all'}:${month ?? 'all'}`;
     const cached = await this.cache.get<DashboardResponse>(cacheKey);
     if (cached) return cached;
 
@@ -25,7 +25,6 @@ export class DashboardService {
     ]);
 
     const expensesByCategoryRaw = await this.repo.getExpensesByCategory(userId, month, year);
-    // Pass pre-fetched expense data to avoid a redundant DB scan
     const budgetVsActualRaw = await this.repo.getBudgetVsActual(userId, month, year, expensesByCategoryRaw);
 
     const expensesByCategory: CategoryBreakdownResponse[] = expensesByCategoryRaw.map((item) => ({
@@ -46,7 +45,7 @@ export class DashboardService {
     }));
 
     const result: DashboardResponse = {
-      period: { month, year },
+      period: { month: month ?? 0, year: year ?? 0 },
       totalExpenses,
       totalIncome,
       totalBudget,

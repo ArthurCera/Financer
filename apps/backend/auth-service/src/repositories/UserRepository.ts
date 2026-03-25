@@ -1,5 +1,5 @@
 import { injectable, inject } from 'tsyringe';
-import { BaseRepository, IUserRepository, UserDto, users, UserRow, eq, type DrizzleDB } from '@financer/backend-shared';
+import { BaseRepository, IUserRepository, UserDto, users, UserRow, eq, type DrizzleDB, type UserRole } from '@financer/backend-shared';
 
 @injectable()
 export class UserRepository extends BaseRepository<UserDto> implements IUserRepository {
@@ -25,7 +25,8 @@ export class UserRepository extends BaseRepository<UserDto> implements IUserRepo
         email: entity.email,
         passwordHash: entity.passwordHash,
         name: entity.name,
-        role: entity.role ?? 'user',
+        role: entity.role ?? 'admin',
+        managedBy: entity.managedBy ?? undefined,
       })
       .returning();
     return this.rowToDto(rows[0] as UserRow);
@@ -60,13 +61,19 @@ export class UserRepository extends BaseRepository<UserDto> implements IUserRepo
     return result !== null;
   }
 
+  async findByManagedBy(adminId: string): Promise<UserDto[]> {
+    const rows = await this.db.select().from(users).where(eq(users.managedBy, adminId));
+    return (rows as UserRow[]).map((row) => this.rowToDto(row));
+  }
+
   private rowToDto(row: UserRow): UserDto {
     return {
       id: row.id,
       email: row.email,
       passwordHash: row.passwordHash,
       name: row.name,
-      role: (row.role as 'user' | 'admin') ?? 'user',
+      role: (row.role as UserRole) ?? 'admin',
+      managedBy: row.managedBy ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };

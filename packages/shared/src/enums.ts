@@ -4,8 +4,9 @@
  */
 
 export enum UserRole {
-  User = 'user',
+  SuperAdmin = 'superadmin',
   Admin = 'admin',
+  User = 'user',
 }
 
 export enum ChatRole {

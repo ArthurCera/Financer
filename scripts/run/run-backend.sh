@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# run-backend.sh — Start all backend microservices locally via serverless-offline
+# run-backend.sh — Start backend microservices locally via serverless-offline
+#
+# Usage:
+#   bash run-backend.sh              # Start all 6 services
+#   bash run-backend.sh --no-llm     # Start 5 services (skip llm-service)
 #
 # Each service runs on its own port (mimicking separate Lambda deployments):
 #   auth-service      → :3001
@@ -8,7 +12,7 @@
 #   budget-service    → :3003
 #   income-service    → :3004
 #   dashboard-service → :3005
-#   llm-service       → :3006
+#   llm-service       → :3006  (skipped with --no-llm)
 # =============================================================================
 set -euo pipefail
 
@@ -20,6 +24,14 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BOLD='\033[1m'
 NC='\033[0m'
+
+# Parse flags
+NO_LLM=false
+for arg in "$@"; do
+  case "$arg" in
+    --no-llm) NO_LLM=true ;;
+  esac
+done
 
 # Load environment
 if [ -f "${PROJECT_ROOT}/.env" ]; then
@@ -55,34 +67,44 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Check if Ollama is running (needed by llm-service)
-if command -v ollama &>/dev/null; then
-  if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
-    echo -e "${YELLOW}[Ollama] Not running — starting service...${NC}"
-    ollama serve &>/dev/null &
-    OLLAMA_PID=$!
-    MAX_WAIT=15
-    WAITED=0
-    until curl -sf http://localhost:11434/api/tags &>/dev/null; do
-      if [ "$WAITED" -ge "$MAX_WAIT" ]; then
-        echo -e "${YELLOW}[Ollama] Could not start within ${MAX_WAIT}s — llm-service will have limited functionality.${NC}"
-        break
+if [ "$NO_LLM" = false ]; then
+  if command -v ollama &>/dev/null; then
+    if ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
+      echo -e "${YELLOW}[Ollama] Not running — starting service...${NC}"
+      ollama serve &>/dev/null &
+      OLLAMA_PID=$!
+      MAX_WAIT=15
+      WAITED=0
+      until curl -sf http://localhost:11434/api/tags &>/dev/null; do
+        if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+          echo -e "${YELLOW}[Ollama] Could not start within ${MAX_WAIT}s — llm-service will have limited functionality.${NC}"
+          break
+        fi
+        sleep 1
+        WAITED=$((WAITED + 1))
+      done
+      if [ "$WAITED" -lt "$MAX_WAIT" ]; then
+        echo -e "${GREEN}[Ollama] Service is ready.${NC}"
       fi
-      sleep 1
-      WAITED=$((WAITED + 1))
-    done
-    if [ "$WAITED" -lt "$MAX_WAIT" ]; then
-      echo -e "${GREEN}[Ollama] Service is ready.${NC}"
+    else
+      echo -e "${GREEN}[Ollama] Already running.${NC}"
     fi
   else
-    echo -e "${GREEN}[Ollama] Already running.${NC}"
+    echo -e "${YELLOW}[Ollama] Not installed — llm-service will have limited functionality. Run scripts/setup/06-setup-ollama.sh to install.${NC}"
   fi
 else
-  echo -e "${YELLOW}[Ollama] Not installed — llm-service will have limited functionality. Run scripts/setup/06-setup-ollama.sh to install.${NC}"
+  echo -e "${YELLOW}[Ollama] Skipped (--no-llm mode).${NC}"
 fi
 
 echo -e "${BOLD}Starting backend microservices...${NC}"
 
 for SERVICE in "${!SERVICE_PORTS[@]}"; do
+  # Skip llm-service when --no-llm is set
+  if [ "$NO_LLM" = true ] && [ "$SERVICE" = "llm-service" ]; then
+    echo -e "${YELLOW}[${SERVICE}] Skipped (--no-llm mode).${NC}"
+    continue
+  fi
+
   SERVICE_DIR="${BACKEND_DIR}/${SERVICE}"
   PORT="${SERVICE_PORTS[$SERVICE]}"
 
@@ -108,8 +130,15 @@ fi
 echo ""
 echo -e "${GREEN}${BOLD}Backend services running:${NC}"
 for SERVICE in "${!SERVICE_PORTS[@]}"; do
+  if [ "$NO_LLM" = true ] && [ "$SERVICE" = "llm-service" ]; then
+    continue
+  fi
   echo -e "  ${SERVICE}: http://localhost:${SERVICE_PORTS[$SERVICE]}"
 done
+if [ "$NO_LLM" = true ]; then
+  echo ""
+  echo -e "  ${YELLOW}LLM features disabled (--no-llm). Chat, OCR, and categorization are unavailable.${NC}"
+fi
 echo ""
 echo -e "Press Ctrl+C to stop all services."
 

@@ -185,6 +185,7 @@
 import { ref, nextTick, watch, onMounted } from 'vue'
 import { Marked } from 'marked'
 import { useLLMStore } from '../../stores/llm.store'
+import { useSubAccountStore } from '../../stores/subaccount.store'
 
 const marked = new Marked({ breaks: true, gfm: true })
 
@@ -194,7 +195,14 @@ function renderMarkdown(text: string): string {
 }
 
 const llmStore = useLLMStore()
+const subAccountStore = useSubAccountStore()
 const input = ref('')
+
+watch(() => subAccountStore.activeSubAccountId, async () => {
+  llmStore.resetForAccountSwitch()
+  await llmStore.fetchHistory()
+  await scrollToBottom()
+})
 const messagesContainer = ref<HTMLElement | null>(null)
 
 onMounted(async () => {

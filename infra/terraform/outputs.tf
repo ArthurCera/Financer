@@ -61,16 +61,11 @@ output "ecs_cluster_id" {
 # Frontend
 # ---------------------------------------------------------------------------
 output "frontend_url" {
-  description = "CloudFront URL for the frontend SPA"
-  value       = "https://${module.frontend.cloudfront_domain_name}"
+  description = "Amplify URL for the frontend SPA"
+  value       = "https://${module.frontend.default_domain}"
 }
 
-output "frontend_bucket_name" {
-  description = "S3 bucket name for frontend deployment"
-  value       = module.frontend.bucket_name
-}
-
-output "frontend_distribution_id" {
-  description = "CloudFront distribution ID (for cache invalidation after deploy)"
-  value       = module.frontend.cloudfront_distribution_id
+output "amplify_app_id" {
+  description = "Amplify app ID (for manual deployments via CLI)"
+  value       = module.frontend.app_id
 }

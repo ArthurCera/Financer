@@ -32,6 +32,7 @@ const ICON_MAP: Record<string, string> = {
   'book-open': `<svg class="w-full h-full" fill="none" stroke="${stroke}" viewBox="${viewBox}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="${sw}" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>`,
   zap: `<svg class="w-full h-full" fill="none" stroke="${stroke}" viewBox="${viewBox}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="${sw}" d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
   plane: `<svg class="w-full h-full" fill="none" stroke="${stroke}" viewBox="${viewBox}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="${sw}" d="M12 19l-7-7 1.41-1.41L11 15.17V2h2v13.17l4.59-4.58L19 12l-7 7z" transform="rotate(-45 12 12)"/></svg>`,
+  wifi: `<svg class="w-full h-full" fill="none" stroke="${stroke}" viewBox="${viewBox}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="${sw}" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.858 15.355-5.858 21.213 0"/></svg>`,
   tag: `<svg class="w-full h-full" fill="none" stroke="${stroke}" viewBox="${viewBox}"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="${sw}" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`,
 }
 

@@ -53,43 +53,60 @@ export interface BudgetActualSummary {
 export class DashboardRepository {
   constructor(@inject('db') private readonly db: DrizzleDB) {}
 
-  async getTotalExpenses(userId: string, month: number, year: number): Promise<number> {
-    const { start, end } = getMonthPeriodDates(month, year);
+  async getTotalExpenses(userId: string, month?: number, year?: number): Promise<number> {
+    const conditions = [eq(expenses.userId, userId)];
+    if (month && year) {
+      const { start, end } = getMonthPeriodDates(month, year);
+      conditions.push(gte(expenses.date, start), lt(expenses.date, end));
+    }
 
     const [row] = await this.db
       .select({ total: sum(expenses.amount) })
       .from(expenses)
-      .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)));
+      .where(and(...conditions));
 
     return parseFloat(String(row?.total ?? 0));
   }
 
-  async getTotalIncome(userId: string, month: number, year: number): Promise<number> {
-    const { start, end } = getMonthPeriodDates(month, year);
+  async getTotalIncome(userId: string, month?: number, year?: number): Promise<number> {
+    const conditions = [eq(incomes.userId, userId)];
+    if (month && year) {
+      const { start, end } = getMonthPeriodDates(month, year);
+      conditions.push(gte(incomes.date, start), lt(incomes.date, end));
+    }
 
     const [row] = await this.db
       .select({ total: sum(incomes.amount) })
       .from(incomes)
-      .where(and(eq(incomes.userId, userId), gte(incomes.date, start), lt(incomes.date, end)));
+      .where(and(...conditions));
 
     return parseFloat(String(row?.total ?? 0));
   }
 
-  async getTotalBudget(userId: string, month: number, year: number): Promise<number> {
+  async getTotalBudget(userId: string, month?: number, year?: number): Promise<number> {
+    const conditions = [eq(budgets.userId, userId)];
+    if (month && year) {
+      conditions.push(eq(budgets.month, month) as any, eq(budgets.year, year) as any);
+    }
+
     const [row] = await this.db
       .select({ total: sum(budgets.amount) })
       .from(budgets)
-      .where(and(eq(budgets.userId, userId), eq(budgets.month, month), eq(budgets.year, year)));
+      .where(and(...conditions));
 
     return parseFloat(String(row?.total ?? 0));
   }
 
   async getExpensesByCategory(
     userId: string,
-    month: number,
-    year: number,
+    month?: number,
+    year?: number,
   ): Promise<CategoryExpenseSummary[]> {
-    const { start, end } = getMonthPeriodDates(month, year);
+    const conditions = [eq(expenses.userId, userId)];
+    if (month && year) {
+      const { start, end } = getMonthPeriodDates(month, year);
+      conditions.push(gte(expenses.date, start), lt(expenses.date, end));
+    }
 
     const rows: CategoryExpenseRow[] = await this.db
       .select({
@@ -100,7 +117,7 @@ export class DashboardRepository {
       })
       .from(expenses)
       .leftJoin(categories, eq(expenses.categoryId, categories.id))
-      .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)))
+      .where(and(...conditions))
       .groupBy(categories.id, categories.name, categories.color);
 
     return rows.map((r) => ({
@@ -113,10 +130,15 @@ export class DashboardRepository {
 
   async getBudgetVsActual(
     userId: string,
-    month: number,
-    year: number,
+    month?: number,
+    year?: number,
     preloadedExpensesByCategory?: CategoryExpenseSummary[],
   ): Promise<BudgetActualSummary[]> {
+    const conditions = [eq(budgets.userId, userId)];
+    if (month && year) {
+      conditions.push(eq(budgets.month, month) as any, eq(budgets.year, year) as any);
+    }
+
     const budgetRows: BudgetRow[] = await this.db
       .select({
         id: budgets.id,
@@ -126,7 +148,7 @@ export class DashboardRepository {
         year: budgets.year,
       })
       .from(budgets)
-      .where(and(eq(budgets.userId, userId), eq(budgets.month, month), eq(budgets.year, year)));
+      .where(and(...conditions));
 
     // Reuse pre-fetched data if available, otherwise query (avoids double scan)
     const expensesByCat = preloadedExpensesByCategory ?? await this.getExpensesByCategory(userId, month, year);
@@ -183,11 +205,15 @@ export class DashboardRepository {
 
   async getRecentExpenses(
     userId: string,
-    month: number,
-    year: number,
+    month?: number,
+    year?: number,
     limit: number = 10,
-  ): Promise<{ id: string; amount: number; description: string | null; categoryName: string | null; date: string }[]> {
-    const { start, end } = getMonthPeriodDates(month, year);
+  ): Promise<{ id: string; amount: number; description: string | null; categoryName: string | null; categoryColor: string | null; categoryIcon: string | null; date: string }[]> {
+    const conditions = [eq(expenses.userId, userId)];
+    if (month && year) {
+      const { start, end } = getMonthPeriodDates(month, year);
+      conditions.push(gte(expenses.date, start), lt(expenses.date, end));
+    }
 
     const rows = await this.db
       .select({
@@ -195,11 +221,13 @@ export class DashboardRepository {
         amount: expenses.amount,
         description: expenses.description,
         categoryName: categories.name,
+        categoryColor: categories.color,
+        categoryIcon: categories.icon,
         date: expenses.date,
       })
       .from(expenses)
       .leftJoin(categories, eq(expenses.categoryId, categories.id))
-      .where(and(eq(expenses.userId, userId), gte(expenses.date, start), lt(expenses.date, end)))
+      .where(and(...conditions))
       .orderBy(desc(expenses.date))
       .limit(limit);
 
@@ -208,6 +236,8 @@ export class DashboardRepository {
       amount: parseFloat(String(r.amount)),
       description: r.description ?? null,
       categoryName: r.categoryName ?? null,
+      categoryColor: r.categoryColor ?? null,
+      categoryIcon: r.categoryIcon ?? null,
       date: r.date as string,
     }));
   }

@@ -3,8 +3,9 @@
  * Keep this file free of any runtime logic — pure type definitions only.
  */
 export declare enum UserRole {
-    User = "user",
-    Admin = "admin"
+    SuperAdmin = "superadmin",
+    Admin = "admin",
+    User = "user"
 }
 export declare enum ChatRole {
     User = "user",

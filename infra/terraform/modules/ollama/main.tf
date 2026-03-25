@@ -166,6 +166,13 @@ resource "aws_ecs_task_definition" "ollama" {
       mountPoints = [
         { sourceVolume = "ollama-models", containerPath = "/root/.ollama" }
       ]
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:${var.container_port}/api/tags || exit 1"]
+        interval    = 30
+        timeout     = 10
+        retries     = 3
+        startPeriod = 120 # Models take time to load on first start
+      }
       logConfiguration = {
         logDriver = "awslogs"
         options = {

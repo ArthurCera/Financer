@@ -6,10 +6,14 @@ import {
   withErrorHandler,
   parseBody,
   ok,
-  authenticate,
+  authenticateFull,
+  resolveEffectiveUserId,
+  invalidateDashboardCache,
   ICacheService,
   RateLimitError,
   ValidationError,
+  type IReadRepository,
+  type UserDto,
 } from '@financer/backend-shared';
 import { LLMService } from '../services/LLMService';
 import { OCRService } from '../services/OCRService';
@@ -25,6 +29,7 @@ const llmService = container.resolve<LLMService>('ILLMService');
 const ocrService = container.resolve<OCRService>('IOCRService');
 const categorizationService = container.resolve<CategorizationService>('ICategorizationService');
 const cacheService = container.resolve<ICacheService>('ICacheService');
+const userRepo = container.resolve<IReadRepository<UserDto>>('IUserReadRepository');
 
 /** Max LLM calls per user per sliding 60-second window */
 const RATE_LIMIT_PER_MINUTE = 20;
@@ -63,7 +68,8 @@ export const health = withErrorHandler(
 
 export const ocr = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     await enforceRateLimit(userId);
     const body = OCRSchema.parse(parseBody(event));
     const result = await ocrService.extractExpense(body.imageBase64, body.mimeType);
@@ -91,10 +97,12 @@ export const ocr = withErrorHandler(
 
 export const categorize = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     await enforceRateLimit(userId);
     const body = CategorizeSchema.parse(parseBody(event));
     const result = await llmService.categorize(userId, body.expenseId);
+    await invalidateDashboardCache(cacheService, userId);
     return ok(result);
   },
 );
@@ -105,10 +113,13 @@ export const categorize = withErrorHandler(
 
 export const categorizeBatch = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     await enforceRateLimit(userId);
     const body = CategorizeBatchSchema.parse(parseBody(event));
     const result = await llmService.categorizeBatchSync(userId, body.month, body.year, body.recategorizeAll);
+    // Invalidate dashboard cache so category changes are reflected immediately
+    await invalidateDashboardCache(cacheService, userId);
     return ok(result);
   },
 );
@@ -119,7 +130,8 @@ export const categorizeBatch = withErrorHandler(
 
 export const chat = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     await enforceRateLimit(userId);
     const body = ChatSchema.parse(parseBody(event));
     const reply = await llmService.chat(userId, body.message);
@@ -133,7 +145,8 @@ export const chat = withErrorHandler(
 
 export const chatHistory = withErrorHandler(
   async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
-    const userId = authenticate(event);
+    const { sub: callerId, role } = authenticateFull(event);
+    const userId = await resolveEffectiveUserId(event, callerId, role, userRepo);
     const result = await llmService.chatHistory(userId);
     return ok(result);
   },

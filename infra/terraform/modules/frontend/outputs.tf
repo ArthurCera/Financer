@@ -1,18 +1,14 @@
-output "bucket_name" {
-  description = "S3 bucket name for frontend deployment"
-  value       = aws_s3_bucket.frontend.id
+output "app_id" {
+  description = "Amplify app ID"
+  value       = aws_amplify_app.frontend.id
 }
 
-output "bucket_arn" {
-  value = aws_s3_bucket.frontend.arn
+output "default_domain" {
+  description = "Amplify default domain (e.g., main.d1234abcdef.amplifyapp.com)"
+  value       = aws_amplify_app.frontend.default_domain
 }
 
-output "cloudfront_distribution_id" {
-  description = "CloudFront distribution ID (for cache invalidation)"
-  value       = aws_cloudfront_distribution.frontend.id
-}
-
-output "cloudfront_domain_name" {
-  description = "CloudFront URL for the frontend"
-  value       = aws_cloudfront_distribution.frontend.domain_name
+output "branch_name" {
+  description = "Amplify branch name"
+  value       = aws_amplify_branch.main.branch_name
 }

@@ -10,6 +10,17 @@ let _getAccessToken: (() => string | null) | null = null
 let _refreshTokens: (() => Promise<AuthTokens>) | null = null
 let _logout: (() => void) | null = null
 
+// Acting-as state — when an admin views a sub-account's data
+let _actingAsUserId: string | null = null
+
+export function setActingAs(userId: string | null): void {
+  _actingAsUserId = userId
+}
+
+export function getActingAs(): string | null {
+  return _actingAsUserId
+}
+
 /** Get the current access token */
 export function getAccessToken(): string | null {
   return _getAccessToken?.() ?? null
@@ -54,11 +65,14 @@ function createApiInstance(baseURL: string, timeout = 15_000): AxiosInstance {
     timeout,
   })
 
-  // Request interceptor — attach Bearer token
+  // Request interceptor — attach Bearer token + acting-as header
   instance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
     const token = _getAccessToken?.()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    if (_actingAsUserId) {
+      config.headers['X-Acting-As'] = _actingAsUserId
     }
     return config
   })

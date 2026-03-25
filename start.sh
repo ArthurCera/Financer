@@ -3,9 +3,9 @@
 # start.sh — Nuke, setup, and run all Financer services
 #
 # Usage:
-#   bash start.sh                  # Full nuke + setup + run
-#   bash start.sh --no-llm         # Skip Ollama setup
-#   bash start.sh --lite-llm       # Use lighter LLM models (≤8 GB VRAM)
+#   bash start.sh                  # Full nuke + setup + run (all services + Ollama)
+#   bash start.sh --no-llm         # Skip Ollama and llm-service entirely
+#   bash start.sh --lite-llm       # Use lighter LLM models (<=4 GB VRAM)
 # =============================================================================
 set -euo pipefail
 
@@ -17,12 +17,25 @@ RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# Forward flags to setup-all.sh
+# Parse flags
+NO_LLM=false
 SETUP_FLAGS=()
+RUN_FLAGS=()
 for arg in "$@"; do
   case "$arg" in
-    --no-llm|--lite-llm) SETUP_FLAGS+=("$arg") ;;
-    *) echo -e "${RED}Unknown flag: $arg${NC}"; exit 1 ;;
+    --no-llm)
+      NO_LLM=true
+      SETUP_FLAGS+=("$arg")
+      RUN_FLAGS+=("$arg")
+      ;;
+    --lite-llm)
+      SETUP_FLAGS+=("$arg")
+      ;;
+    *)
+      echo -e "${RED}Unknown flag: $arg${NC}"
+      echo "Usage: bash start.sh [--no-llm | --lite-llm]"
+      exit 1
+      ;;
   esac
 done
 
@@ -64,31 +77,38 @@ echo ""
 echo -e "${YELLOW}Starting Docker services...${NC}"
 cd "$SCRIPT_DIR" && docker compose up -d
 
-# Ollama
-if command -v ollama &>/dev/null && ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
-  echo -e "${YELLOW}[Ollama] Starting service...${NC}"
-  ollama serve &>/dev/null &
-  MAX_WAIT=15
-  WAITED=0
-  until curl -sf http://localhost:11434/api/tags &>/dev/null; do
-    if [ "$WAITED" -ge "$MAX_WAIT" ]; then
-      echo -e "${YELLOW}[Ollama] Failed to start within ${MAX_WAIT}s — continuing anyway.${NC}"
-      break
-    fi
-    sleep 1
-    WAITED=$((WAITED + 1))
-  done
-  [ "$WAITED" -lt "$MAX_WAIT" ] && echo -e "${GREEN}[Ollama] Service is ready.${NC}"
+# Ollama (skip when --no-llm)
+if [ "$NO_LLM" = false ]; then
+  if command -v ollama &>/dev/null && ! curl -sf http://localhost:11434/api/tags &>/dev/null; then
+    echo -e "${YELLOW}[Ollama] Starting service...${NC}"
+    ollama serve &>/dev/null &
+    MAX_WAIT=15
+    WAITED=0
+    until curl -sf http://localhost:11434/api/tags &>/dev/null; do
+      if [ "$WAITED" -ge "$MAX_WAIT" ]; then
+        echo -e "${YELLOW}[Ollama] Failed to start within ${MAX_WAIT}s — continuing anyway.${NC}"
+        break
+      fi
+      sleep 1
+      WAITED=$((WAITED + 1))
+    done
+    [ "$WAITED" -lt "$MAX_WAIT" ] && echo -e "${GREEN}[Ollama] Service is ready.${NC}"
+  fi
+else
+  echo -e "${YELLOW}[Ollama] Skipped (--no-llm mode).${NC}"
 fi
 
-# Backend (background)
+# Backend (background) — pass --no-llm if set
 echo -e "${YELLOW}Starting backend services...${NC}"
-bash "${SCRIPT_DIR}/scripts/run/run-backend.sh" &
+bash "${SCRIPT_DIR}/scripts/run/run-backend.sh" "${RUN_FLAGS[@]+"${RUN_FLAGS[@]}"}" &
 BACKEND_PID=$!
 
-# Wait for health checks
+# Wait for health checks (exclude port 3006 when --no-llm)
 echo -e "${YELLOW}Waiting for backend services to be ready...${NC}"
-PORTS=(${AUTH_SERVICE_PORT:-3001} ${EXPENSE_SERVICE_PORT:-3002} ${BUDGET_SERVICE_PORT:-3003} ${INCOME_SERVICE_PORT:-3004} ${DASHBOARD_SERVICE_PORT:-3005} ${LLM_SERVICE_PORT:-3006})
+PORTS=(${AUTH_SERVICE_PORT:-3001} ${EXPENSE_SERVICE_PORT:-3002} ${BUDGET_SERVICE_PORT:-3003} ${INCOME_SERVICE_PORT:-3004} ${DASHBOARD_SERVICE_PORT:-3005})
+if [ "$NO_LLM" = false ]; then
+  PORTS+=(${LLM_SERVICE_PORT:-3006})
+fi
 for PORT in "${PORTS[@]}"; do
   RETRIES=30
   until curl -sf "http://localhost:${PORT}/health" &>/dev/null; do

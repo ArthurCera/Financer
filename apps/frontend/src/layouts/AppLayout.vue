@@ -46,6 +46,29 @@
           ></span>
           {{ item.label }}
         </RouterLink>
+
+        <!-- Sub-account list (admin mode, below nav) -->
+        <template v-if="viewMode === 'admin' && auth.user?.role === 'admin' && adminUsers.length > 0">
+          <div class="mt-4 pt-4 border-t border-slate-700/50">
+            <p class="px-3 mb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Accounts
+            </p>
+            <button
+              v-for="sub in adminUsers"
+              :key="sub.id"
+              class="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors duration-150 mt-0.5"
+              :class="adminStore.selectedSubAccountId === sub.id
+                ? 'bg-indigo-600 text-white'
+                : 'text-slate-400 hover:bg-slate-800 hover:text-white'"
+              @click="handleSelectSubAccount(sub.id)"
+            >
+              <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span class="truncate">{{ sub.name }}</span>
+            </button>
+          </div>
+        </template>
       </nav>
 
       <!-- User section -->
@@ -151,6 +174,22 @@
         </div>
       </header>
 
+      <!-- Active sub-account banner -->
+      <div
+        v-if="subAccountStore.activeSubAccount"
+        class="px-6 py-2 bg-indigo-50 border-b border-indigo-200 flex items-center justify-between"
+      >
+        <p class="text-sm text-indigo-700">
+          Viewing: <span class="font-semibold">{{ subAccountStore.activeSubAccount.name }}</span>'s account
+        </p>
+        <button
+          class="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          @click="handleSwitchOwn"
+        >
+          Back to my account
+        </button>
+      </div>
+
       <!-- Page content -->
       <main class="flex-1 overflow-y-auto p-6">
         <slot></slot>
@@ -163,20 +202,25 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watchEffect } from 'vue'
+import { ref, computed, watchEffect, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.store'
+import { useSubAccountStore } from '../stores/subaccount.store'
+import { useAdminStore } from '../stores/admin.store'
 import ChatWidget from '../components/chat/ChatWidget.vue'
 
 const auth = useAuthStore()
+const subAccountStore = useSubAccountStore()
+const adminStore = useAdminStore()
+
+const adminUsers = computed(() => adminStore.users)
 const route = useRoute()
 const router = useRouter()
 
 const sidebarOpen = ref(false)
 const viewMode = ref<'client' | 'admin'>('client')
 
-const isAdmin = computed(() => auth.user?.role === 'admin')
-
+const isAdmin = computed(() => auth.user?.role === 'admin' || auth.user?.role === 'superadmin')
 const clientNavItems = [
   {
     to: '/dashboard',
@@ -245,13 +289,26 @@ watchEffect(() => {
   }
 })
 
+async function handleSelectSubAccount(userId: string): Promise<void> {
+  const now = new Date()
+  await adminStore.fetchSubAccountDetail(userId, now.getMonth() + 1, now.getFullYear())
+  nextTick(() => {
+    document.getElementById('sub-account-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  })
+}
+
 function switchView(mode: 'client' | 'admin'): void {
   viewMode.value = mode
   if (mode === 'admin') {
     router.push('/admin')
   } else {
+    subAccountStore.switchToOwnAccount()
     router.push('/dashboard')
   }
+}
+
+function handleSwitchOwn(): void {
+  subAccountStore.switchToOwnAccount()
 }
 
 const currentDate = computed(() =>

@@ -12,36 +12,33 @@
       </div>
 
       <div class="flex items-center gap-3">
-        <div class="w-full">
-          <select
-            v-model="selectedMonth"
-            class="input-base w-auto"
+        <label class="flex items-center gap-1.5 text-sm text-slate-600 cursor-pointer">
+          <input
+            v-model="showAll"
+            type="checkbox"
+            class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
             @change="loadDashboard"
-          >
-            <option
-              v-for="m in months"
-              :key="m.value"
-              :value="m.value"
-            >
-              {{ m.label }}
-            </option>
-          </select>
-        </div>
-        <div class="w-full">
-          <select
-            v-model="selectedYear"
-            class="input-base w-auto"
-            @change="loadDashboard"
-          >
-            <option
-              v-for="y in years"
-              :key="y"
-              :value="y"
-            >
-              {{ y }}
-            </option>
-          </select>
-        </div>
+          />
+          All
+        </label>
+        <select
+          v-model="selectedMonth"
+          class="input-base w-auto"
+          :disabled="showAll"
+          :class="{ 'opacity-50': showAll }"
+          @change="loadDashboard"
+        >
+          <option v-for="m in months" :key="m.value" :value="m.value">{{ m.label }}</option>
+        </select>
+        <select
+          v-model="selectedYear"
+          class="input-base w-auto"
+          :disabled="showAll"
+          :class="{ 'opacity-50': showAll }"
+          @change="loadDashboard"
+        >
+          <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+        </select>
       </div>
     </div>
 
@@ -296,13 +293,15 @@
               </td>
               <td class="px-6 py-3">
                 <span
-                  v-if="exp.categoryName"
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700"
-                >{{ exp.categoryName }}</span>
-                <span
-                  v-else
-                  class="text-slate-400 text-xs"
-                >\u2014</span>
+                  class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium"
+                  :style="{
+                    backgroundColor: (exp.categoryColor ?? '#9CA3AF') + '18',
+                    color: exp.categoryColor ?? '#9CA3AF',
+                  }"
+                >
+                  <CategoryIcon :icon="exp.categoryIcon ?? 'tag'" />
+                  {{ exp.categoryName ?? 'Uncategorized' }}
+                </span>
               </td>
               <td class="px-6 py-3 text-right font-semibold text-red-600">
                 {{ formatCurrency(exp.amount) }}
@@ -326,20 +325,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import AppLayout from '../layouts/AppLayout.vue'
 import AppButton from '../components/common/AppButton.vue'
 import SummaryCard from '../components/dashboard/SummaryCard.vue'
 import ExpenseChart from '../components/dashboard/ExpenseChart.vue'
+import CategoryIcon from '../components/common/CategoryIcon.vue'
 import { useDashboardStore } from '../stores/dashboard.store'
+import { useSubAccountStore } from '../stores/subaccount.store'
 import { MONTHS } from '../utils/constants'
 import { formatCurrency, formatDate } from '../utils/formatting'
 
 const dashboardStore = useDashboardStore()
+const subAccountStore = useSubAccountStore()
+
+watch(() => subAccountStore.activeSubAccountId, () => {
+  loadDashboard()
+})
 
 const now = new Date()
 const selectedMonth = ref(now.getMonth() + 1)
 const selectedYear = ref(now.getFullYear())
+const showAll = ref(false)
 
 const months = MONTHS
 
@@ -354,7 +361,11 @@ const savings = computed(() => {
 })
 
 async function loadDashboard(): Promise<void> {
-  await dashboardStore.fetchDashboard(selectedMonth.value, selectedYear.value)
+  if (showAll.value) {
+    await dashboardStore.fetchDashboard()
+  } else {
+    await dashboardStore.fetchDashboard(selectedMonth.value, selectedYear.value)
+  }
 }
 
 type SortField = 'date' | 'amount'

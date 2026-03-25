@@ -94,7 +94,8 @@ async function handleLogin(): Promise<void> {
   loading.value = true
   try {
     await auth.login(form.email, form.password)
-    await router.push('/dashboard')
+    const role = auth.user?.role ?? ''
+    await router.push(['admin', 'superadmin'].includes(role) ? '/admin' : '/dashboard')
   } catch (err) {
     error.value = extractMessage(err)
   } finally {

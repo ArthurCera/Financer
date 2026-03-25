@@ -10,5 +10,6 @@ container.register('db', { useValue: db });
 container.register('ICacheService', { useClass: RedisService });
 container.register('DashboardRepository', { useClass: DashboardRepository });
 container.register(DashboardService, { useClass: DashboardService });
+container.register('DashboardService', { useClass: DashboardService });
 container.register('AdminRepository', { useClass: AdminRepository });
 container.register(AdminService, { useClass: AdminService });

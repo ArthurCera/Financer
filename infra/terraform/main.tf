@@ -9,7 +9,7 @@
 #   - 6 Lambda microservices behind API Gateway
 #   - Ollama LLM model server on ECS Fargate (with EFS model storage)
 #   - LLM SSE streaming server on ECS Fargate
-#   - S3 + CloudFront for the Vue 3 SPA frontend
+#   - AWS Amplify for the Vue 3 SPA frontend
 #
 # To apply: ensure AWS credentials are configured and run:
 #   terraform init && terraform plan
@@ -121,12 +121,21 @@ module "ollama" {
 }
 
 # ---------------------------------------------------------------------------
-# Frontend — S3 + CloudFront for Vue 3 SPA
+# Frontend — AWS Amplify for Vue 3 SPA
 # ---------------------------------------------------------------------------
 module "frontend" {
   source      = "./modules/frontend"
   name_prefix = local.name_prefix
   domain_name = var.frontend_domain_name
+
+  environment_variables = {
+    VITE_AUTH_URL      = module.api_gateway.api_url
+    VITE_EXPENSE_URL   = module.api_gateway.api_url
+    VITE_BUDGET_URL    = module.api_gateway.api_url
+    VITE_INCOME_URL    = module.api_gateway.api_url
+    VITE_DASHBOARD_URL = module.api_gateway.api_url
+    VITE_LLM_URL       = module.api_gateway.api_url
+  }
 }
 
 # =============================================================================
@@ -231,16 +240,30 @@ module "lambda_llm" {
 # =============================================================================
 
 resource "aws_security_group" "llm_stream" {
-  name   = "${local.name_prefix}-llm-stream-sg"
-  vpc_id = module.vpc.vpc_id
+  name        = "${local.name_prefix}-llm-stream-sg"
+  description = "LLM SSE streaming server — accepts connections on port 3007"
+  vpc_id      = module.vpc.vpc_id
 
   ingress {
     description = "SSE streaming port"
     from_port   = 3007
     to_port     = 3007
     protocol    = "tcp"
-    cidr_blocks = ["10.0.0.0/16"]
+    cidr_blocks = [module.vpc.vpc_cidr_block]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "llm_worker" {
+  name        = "${local.name_prefix}-llm-worker-sg"
+  description = "LLM queue worker — egress only, no inbound traffic"
+  vpc_id      = module.vpc.vpc_id
 
   egress {
     from_port   = 0
@@ -262,6 +285,7 @@ resource "aws_ecs_task_definition" "llm_stream" {
   cpu                      = var.llm_stream_cpu
   memory                   = var.llm_stream_memory
   execution_role_arn       = module.ollama.task_execution_role_arn
+  task_role_arn            = module.ollama.task_execution_role_arn
 
   container_definitions = jsonencode([
     {
@@ -277,10 +301,8 @@ resource "aws_ecs_task_definition" "llm_stream" {
         { name = "POSTGRES_PORT", value = "5432" },
         { name = "POSTGRES_DB", value = var.db_name },
         { name = "POSTGRES_USER", value = var.db_username },
-        { name = "POSTGRES_PASSWORD", value = var.db_password },
         { name = "REDIS_HOST", value = module.elasticache.endpoint },
         { name = "REDIS_PORT", value = "6379" },
-        { name = "JWT_SECRET", value = var.jwt_secret },
         { name = "OLLAMA_BASE_URL", value = module.ollama.ollama_base_url },
         { name = "OLLAMA_CHAT_MODEL", value = var.ollama_chat_model },
         { name = "OLLAMA_OCR_MODEL", value = var.ollama_ocr_model },
@@ -288,6 +310,17 @@ resource "aws_ecs_task_definition" "llm_stream" {
         { name = "OLLAMA_EMBED_DIMENSIONS", value = var.ollama_embed_dimensions },
         { name = "RABBITMQ_URL", value = module.mq.amqp_endpoint },
       ]
+      secrets = [
+        { name = "POSTGRES_PASSWORD", valueFrom = aws_ssm_parameter.db_password.arn },
+        { name = "JWT_SECRET", valueFrom = aws_ssm_parameter.jwt_secret.arn },
+      ]
+      healthCheck = {
+        command     = ["CMD-SHELL", "curl -f http://localhost:3007/health || exit 1"]
+        interval    = 30
+        timeout     = 5
+        retries     = 3
+        startPeriod = 30
+      }
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -332,6 +365,7 @@ resource "aws_ecs_task_definition" "llm_queue_worker" {
   cpu                      = var.llm_stream_cpu
   memory                   = var.llm_stream_memory
   execution_role_arn       = module.ollama.task_execution_role_arn
+  task_role_arn            = module.ollama.task_execution_role_arn
 
   container_definitions = jsonencode([
     {
@@ -343,16 +377,18 @@ resource "aws_ecs_task_definition" "llm_queue_worker" {
         { name = "POSTGRES_PORT", value = "5432" },
         { name = "POSTGRES_DB", value = var.db_name },
         { name = "POSTGRES_USER", value = var.db_username },
-        { name = "POSTGRES_PASSWORD", value = var.db_password },
         { name = "REDIS_HOST", value = module.elasticache.endpoint },
         { name = "REDIS_PORT", value = "6379" },
-        { name = "JWT_SECRET", value = var.jwt_secret },
         { name = "RABBITMQ_URL", value = module.mq.amqp_endpoint },
         { name = "OLLAMA_BASE_URL", value = module.ollama.ollama_base_url },
         { name = "OLLAMA_CHAT_MODEL", value = var.ollama_chat_model },
         { name = "OLLAMA_OCR_MODEL", value = var.ollama_ocr_model },
         { name = "OLLAMA_EMBED_MODEL", value = var.ollama_embed_model },
         { name = "OLLAMA_EMBED_DIMENSIONS", value = var.ollama_embed_dimensions },
+      ]
+      secrets = [
+        { name = "POSTGRES_PASSWORD", valueFrom = aws_ssm_parameter.db_password.arn },
+        { name = "JWT_SECRET", valueFrom = aws_ssm_parameter.jwt_secret.arn },
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -375,8 +411,49 @@ resource "aws_ecs_service" "llm_queue_worker" {
 
   network_configuration {
     subnets         = module.vpc.private_subnet_ids
-    security_groups = [aws_security_group.llm_stream.id]
+    security_groups = [aws_security_group.llm_worker.id]
   }
+}
+
+# =============================================================================
+# Secrets — SSM Parameter Store for ECS task secrets
+#
+# ECS tasks pull these at container start via the `secrets` block.
+# Populate via: terraform apply -var="db_password=..." -var="jwt_secret=..."
+# =============================================================================
+
+resource "aws_ssm_parameter" "db_password" {
+  name  = "/${local.name_prefix}/db-password"
+  type  = "SecureString"
+  value = var.db_password
+  tags  = { Name = "${local.name_prefix}-db-password" }
+}
+
+resource "aws_ssm_parameter" "jwt_secret" {
+  name  = "/${local.name_prefix}/jwt-secret"
+  type  = "SecureString"
+  value = var.jwt_secret
+  tags  = { Name = "${local.name_prefix}-jwt-secret" }
+}
+
+resource "aws_iam_role_policy" "ecs_secrets_access" {
+  name = "${local.name_prefix}-ecs-secrets-access"
+  role = module.ollama.task_execution_role_name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameters",
+        "ssm:GetParameter"
+      ]
+      Resource = [
+        aws_ssm_parameter.db_password.arn,
+        aws_ssm_parameter.jwt_secret.arn,
+      ]
+    }]
+  })
 }
 
 # =============================================================================

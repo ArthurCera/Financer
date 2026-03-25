@@ -7,8 +7,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatRole = exports.UserRole = void 0;
 var UserRole;
 (function (UserRole) {
-    UserRole["User"] = "user";
+    UserRole["SuperAdmin"] = "superadmin";
     UserRole["Admin"] = "admin";
+    UserRole["User"] = "user";
 })(UserRole || (exports.UserRole = UserRole = {}));
 var ChatRole;
 (function (ChatRole) {
