@@ -1,0 +1,28 @@
+{
+  "name": "@financer/llm-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "LLM microservice — OCR, auto-categorization, and RAG chat",
+  "scripts": {
+    "dev": "serverless offline --httpPort 3006 --lambdaPort 4006 --noPrependStageInUrl",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@financer/backend-shared": "workspace:*",
+    "@financer/shared": "workspace:*",
+    "amqplib": "^0.10.4",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.8.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/amqplib": "^0.10.5",
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^20.12.12",
+    "serverless": "^3.38.0",
+    "serverless-offline": "^13.6.0",
+    "serverless-plugin-typescript": "^2.1.5",
+    "typescript": "^5.4.5"
+  }
+}

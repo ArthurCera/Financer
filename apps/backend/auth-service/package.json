@@ -1,0 +1,31 @@
+{
+  "name": "@financer/auth-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Authentication microservice — JWT login, register, refresh",
+  "main": "src/handlers/handler.ts",
+  "scripts": {
+    "dev": "serverless offline --httpPort 3001 --lambdaPort 4001 --noPrependStageInUrl",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@financer/backend-shared": "workspace:*",
+    "@financer/shared": "workspace:*",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.8.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/node": "^20.12.12",
+    "serverless": "^3.38.0",
+    "serverless-offline": "^13.6.0",
+    "serverless-plugin-typescript": "^2.1.5",
+    "typescript": "^5.4.5"
+  }
+}

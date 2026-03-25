@@ -1,0 +1,26 @@
+{
+  "name": "@financer/budget-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Budget management microservice — set/create/delete budgets per category",
+  "scripts": {
+    "dev": "serverless offline --httpPort 3003 --lambdaPort 4003 --noPrependStageInUrl",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@financer/backend-shared": "workspace:*",
+    "@financer/shared": "workspace:*",
+    "reflect-metadata": "^0.2.2",
+    "tsyringe": "^4.8.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^20.12.12",
+    "serverless": "^3.38.0",
+    "serverless-offline": "^13.6.0",
+    "serverless-plugin-typescript": "^2.1.5",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.build/
+.serverless/
+*.js.map
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Docker volumes (local dev data)
+docker-volumes/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Claude Code
+.claude/
+
+# Playwright
+test-results/
+playwright-report/

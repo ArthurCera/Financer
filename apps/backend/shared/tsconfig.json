@@ -1,0 +1,25 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../../..",
+    "outDir": "dist",
+    "declaration": true,
+    "paths": {
+      "@financer/shared": ["../../../packages/shared/src"]
+    }
+  },
+  "include": [
+    "interfaces/**/*",
+    "abstracts/**/*",
+    "types/**/*",
+    "db/**/*",
+    "middleware/**/*",
+    "services/**/*",
+    "utils/**/*",
+    "index.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
+}

@@ -1,0 +1,24 @@
+import 'reflect-metadata';
+import { container } from 'tsyringe';
+import { db, RedisService } from '@financer/backend-shared';
+import { OllamaProvider } from './providers/OllamaProvider';
+import { OllamaOCRProvider } from './providers/OllamaOCRProvider';
+import { PgVectorRepository } from './repositories/PgVectorRepository';
+import { LLMChatRepository } from './repositories/LLMChatRepository';
+import { CategoryRepository } from './repositories/CategoryRepository';
+import { RabbitMQService } from './queue/RabbitMQService';
+import { LLMService } from './services/LLMService';
+import { OCRService } from './services/OCRService';
+import { QueueWorker } from './services/QueueWorker';
+
+container.register('db', { useValue: db });
+container.register('ICacheService', { useClass: RedisService });
+container.register('ILLMProvider', { useClass: OllamaProvider });
+container.register('IOCRProvider', { useClass: OllamaOCRProvider });
+container.register('IVectorRepository', { useClass: PgVectorRepository });
+container.register('IQueueService', { useClass: RabbitMQService });
+container.register('LLMChatRepository', { useClass: LLMChatRepository });
+container.register('CategoryRepository', { useClass: CategoryRepository });
+container.register(LLMService, { useClass: LLMService });
+container.register(OCRService, { useClass: OCRService });
+container.register(QueueWorker, { useClass: QueueWorker });

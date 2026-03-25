@@ -1,0 +1,28 @@
+# =============================================================================
+# terraform.tfvars.example
+# Copy to terraform.tfvars and fill in real values.
+# Never commit terraform.tfvars to version control.
+# =============================================================================
+
+aws_region  = "us-east-1"
+environment = "dev"
+project     = "financer"
+
+# Database
+db_name           = "financer"
+db_username       = "financer"
+db_password       = "CHANGE_ME_strong_password_here"
+db_instance_class = "db.t3.micro"
+db_multi_az       = false
+
+# Redis
+redis_node_type = "cache.t3.micro"
+
+# RabbitMQ
+rabbitmq_username      = "financer"
+rabbitmq_password      = "CHANGE_ME_strong_password_here"
+rabbitmq_instance_type = "mq.t3.micro"
+
+# Lambda
+lambda_memory_size = 256
+lambda_timeout     = 30

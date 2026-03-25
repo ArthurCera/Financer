@@ -1,0 +1,29 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../../..",
+    "baseUrl": ".",
+    "outDir": "dist",
+    "typeRoots": [
+      "./node_modules/@types",
+      "../shared/node_modules/@types",
+      "../../../node_modules/.pnpm/@types+jsonwebtoken@9.0.10/node_modules/@types"
+    ],
+    "paths": {
+      "@financer/backend-shared": ["../shared"],
+      "@financer/shared": ["../../../packages/shared/src"],
+      "drizzle-orm": ["../shared/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["../shared/node_modules/drizzle-orm/*"],
+      "tsyringe": ["./node_modules/tsyringe"],
+      "zod": ["./node_modules/zod"],
+      "jsonwebtoken": ["../../../node_modules/.pnpm/jsonwebtoken@9.0.3/node_modules/jsonwebtoken"],
+      "redis": ["../shared/node_modules/redis"],
+      "redis/*": ["../shared/node_modules/redis/*"],
+      "pg": ["../shared/node_modules/pg"],
+      "pg/*": ["../shared/node_modules/pg/*"],
+      "amqplib": ["./node_modules/amqplib"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

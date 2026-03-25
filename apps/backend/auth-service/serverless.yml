@@ -1,0 +1,65 @@
+service: financer-auth-service
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'local'}
+  environment:
+    POSTGRES_HOST: ${env:POSTGRES_HOST, 'localhost'}
+    POSTGRES_PORT: ${env:POSTGRES_PORT, '5432'}
+    POSTGRES_DB: ${env:POSTGRES_DB, 'financer'}
+    POSTGRES_USER: ${env:POSTGRES_USER, 'financer'}
+    POSTGRES_PASSWORD: ${env:POSTGRES_PASSWORD, 'financer_local'}
+    JWT_SECRET: ${env:JWT_SECRET, 'dev_secret'}
+    JWT_EXPIRES_IN: ${env:JWT_EXPIRES_IN, '15m'}
+    JWT_REFRESH_EXPIRES_IN: ${env:JWT_REFRESH_EXPIRES_IN, '7d'}
+    REDIS_HOST: ${env:REDIS_HOST, 'localhost'}
+    REDIS_PORT: ${env:REDIS_PORT, '6379'}
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3001
+    noPrependStageInUrl: true
+
+functions:
+  health:
+    handler: src/handlers/handler.health
+    events:
+      - http:
+          method: GET
+          path: /health
+
+  register:
+    handler: src/handlers/handler.register
+    events:
+      - http:
+          method: POST
+          path: /auth/register
+
+  login:
+    handler: src/handlers/handler.login
+    events:
+      - http:
+          method: POST
+          path: /auth/login
+
+  refresh:
+    handler: src/handlers/handler.refresh
+    events:
+      - http:
+          method: POST
+          path: /auth/refresh
+
+  me:
+    handler: src/handlers/handler.me
+    events:
+      - http:
+          method: GET
+          path: /auth/me

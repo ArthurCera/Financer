@@ -1,0 +1,64 @@
+service: financer-llm-service
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'local'}
+  environment:
+    POSTGRES_HOST: ${env:POSTGRES_HOST, 'localhost'}
+    POSTGRES_PORT: ${env:POSTGRES_PORT, '5432'}
+    POSTGRES_DB: ${env:POSTGRES_DB, 'financer'}
+    POSTGRES_USER: ${env:POSTGRES_USER, 'financer'}
+    POSTGRES_PASSWORD: ${env:POSTGRES_PASSWORD, 'financer_local'}
+    REDIS_HOST: ${env:REDIS_HOST, 'localhost'}
+    REDIS_PORT: ${env:REDIS_PORT, '6379'}
+    RABBITMQ_URL: ${env:RABBITMQ_URL, 'amqp://guest:guest@localhost:5672'}
+    JWT_SECRET: ${env:JWT_SECRET, 'dev_secret'}
+    OLLAMA_BASE_URL: ${env:OLLAMA_BASE_URL, 'http://localhost:11434'}
+    OLLAMA_CHAT_MODEL: ${env:OLLAMA_CHAT_MODEL, 'qwen3.5:9b'}
+    OLLAMA_OCR_MODEL: ${env:OLLAMA_OCR_MODEL, 'glm-ocr'}
+    OLLAMA_EMBED_MODEL: ${env:OLLAMA_EMBED_MODEL, 'bge-m3'}
+    OLLAMA_EMBED_DIMENSIONS: ${env:OLLAMA_EMBED_DIMENSIONS, '1024'}
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3006
+    noPrependStageInUrl: true
+
+functions:
+  health:
+    handler: src/handlers/handler.health
+    events:
+      - http: { method: GET, path: /health }
+
+  ocr:
+    handler: src/handlers/handler.ocr
+    events:
+      - http: { method: POST, path: /llm/ocr }
+
+  categorize:
+    handler: src/handlers/handler.categorize
+    events:
+      - http: { method: POST, path: /llm/categorize }
+
+  categorizeBatch:
+    handler: src/handlers/handler.categorizeBatch
+    events:
+      - http: { method: POST, path: /llm/categorize-batch }
+
+  chat:
+    handler: src/handlers/handler.chat
+    events:
+      - http: { method: POST, path: /llm/chat }
+
+  chatHistory:
+    handler: src/handlers/handler.chatHistory
+    events:
+      - http: { method: GET, path: /llm/chat/history }

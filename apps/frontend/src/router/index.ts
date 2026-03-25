@@ -1,0 +1,77 @@
+import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import { useAuthStore } from '../stores/auth.store'
+
+const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    redirect: '/dashboard',
+  },
+  {
+    path: '/login',
+    component: () => import('../views/LoginView.vue'),
+    meta: { layout: 'auth' },
+  },
+  {
+    path: '/register',
+    component: () => import('../views/RegisterView.vue'),
+    meta: { layout: 'auth' },
+  },
+  {
+    path: '/dashboard',
+    component: () => import('../views/DashboardView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/expenses',
+    component: () => import('../views/ExpensesView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/budgets',
+    component: () => import('../views/BudgetsView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/income',
+    component: () => import('../views/IncomeView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/admin',
+    component: () => import('../views/AdminView.vue'),
+    meta: { requiresAuth: true, requiresAdmin: true },
+  },
+]
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes,
+})
+
+let _initialized = false
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+
+  // On first navigation, try to restore session from stored refresh token
+  if (!_initialized) {
+    _initialized = true
+    await auth.initialize()
+  }
+
+  if (to.meta['requiresAuth'] && !auth.isAuthenticated) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  // Admin-only routes
+  if (to.meta['requiresAdmin'] && auth.user?.role !== 'admin') {
+    return { path: '/dashboard' }
+  }
+
+  // If already authenticated, redirect away from auth pages
+  if ((to.path === '/login' || to.path === '/register') && auth.isAuthenticated) {
+    return { path: '/dashboard' }
+  }
+})
+
+export default router

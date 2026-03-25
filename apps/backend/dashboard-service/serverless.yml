@@ -1,0 +1,53 @@
+service: financer-dashboard-service
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: ${opt:region, 'us-east-1'}
+  stage: ${opt:stage, 'local'}
+  environment:
+    POSTGRES_HOST: ${env:POSTGRES_HOST, 'localhost'}
+    POSTGRES_PORT: ${env:POSTGRES_PORT, '5432'}
+    POSTGRES_DB: ${env:POSTGRES_DB, 'financer'}
+    POSTGRES_USER: ${env:POSTGRES_USER, 'financer'}
+    POSTGRES_PASSWORD: ${env:POSTGRES_PASSWORD, 'financer_local'}
+    REDIS_HOST: ${env:REDIS_HOST, 'localhost'}
+    REDIS_PORT: ${env:REDIS_PORT, '6379'}
+    JWT_SECRET: ${env:JWT_SECRET, 'dev_secret'}
+
+plugins:
+  - serverless-plugin-typescript
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 3005
+    noPrependStageInUrl: true
+
+functions:
+  health:
+    handler: src/handlers/handler.health
+    events:
+      - http: { method: GET, path: /health }
+
+  getDashboard:
+    handler: src/handlers/handler.getDashboard
+    events:
+      - http: { method: GET, path: /dashboard }
+
+  getAdminUsers:
+    handler: src/handlers/handler.getAdminUsers
+    events:
+      - http: { method: GET, path: /admin/users }
+
+  getAdminStats:
+    handler: src/handlers/handler.getAdminStats
+    events:
+      - http: { method: GET, path: /admin/stats }
+
+  getAdminLLMUsage:
+    handler: src/handlers/handler.getAdminLLMUsage
+    events:
+      - http: { method: GET, path: /admin/llm-usage }

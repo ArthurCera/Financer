@@ -1,0 +1,26 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../../..",
+    "baseUrl": ".",
+    "outDir": "dist",
+    "typeRoots": [
+      "./node_modules/@types",
+      "../shared/node_modules/@types"
+    ],
+    "paths": {
+      "@financer/backend-shared": ["../shared"],
+      "@financer/shared": ["../../../packages/shared/src"],
+      "drizzle-orm": ["../shared/node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["../shared/node_modules/drizzle-orm/*"],
+      "tsyringe": ["./node_modules/tsyringe"],
+      "zod": ["./node_modules/zod"],
+      "redis": ["../shared/node_modules/redis"],
+      "redis/*": ["../shared/node_modules/redis/*"],
+      "pg": ["../shared/node_modules/pg"],
+      "pg/*": ["../shared/node_modules/pg/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

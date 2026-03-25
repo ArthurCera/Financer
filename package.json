@@ -1,0 +1,28 @@
+{
+  "name": "financer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack finance organizer — monorepo root",
+  "scripts": {
+    "setup": "bash scripts/setup-all.sh",
+    "migrate": "bash scripts/migrate.sh",
+    "dev": "bash scripts/run/run-all.sh",
+    "dev:backend": "bash scripts/run/run-backend.sh",
+    "dev:frontend": "bash scripts/run/run-frontend.sh",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "nuke": "bash scripts/nuke.sh",
+    "nuke:force": "bash scripts/nuke.sh --force",
+    "docker:logs": "docker compose logs -f",
+    "typecheck": "pnpm -r tsc --noEmit",
+    "test:backend": "vitest run --config vitest.config.ts",
+    "test:backend:watch": "vitest --config vitest.config.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}
